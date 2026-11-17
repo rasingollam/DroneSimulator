@@ -50,6 +50,9 @@ func _draw() -> void:
 	var scale_factor := minf(viewport.x / 1440.0, viewport.y / 900.0)
 	var offset := (viewport - Vector2(1440, 900) * scale_factor) / 2.0
 	draw_set_transform(offset, 0.0, Vector2.ONE * scale_factor)
+	if sim.show_fleet:
+		_fleet()
+		return
 	var d: RigidBody3D = sim.drone
 	if sim.hud_mode == 1:
 		_header(d)
@@ -70,7 +73,7 @@ func _draw() -> void:
 		text("HARD IMPACT", Vector2(607, 419), 28, AMBER, bold)
 		var reset_hint := "Tap RESET on your phone to return to the pad." if d.remote_active else "Press R to return to the pad."
 		text(reset_hint, Vector2(535, 459), 16, INK)
-	if sim.paused and not sim.show_help and not sim.show_phone:
+	if sim.paused and not sim.show_help and not sim.show_phone and not sim.show_fleet:
 		_veil(Color(0.01, 0.035, 0.045, 0.26))
 		panel(Rect2(480, 365, 480, 150))
 		text("PAUSED", Vector2(651, 424), 30, INK, bold)
@@ -80,6 +83,8 @@ func _draw() -> void:
 		_help()
 	if sim.show_phone:
 		_phone_help()
+	if sim.show_fleet:
+		_fleet()
 	elif sim.hud_mode == 1 and sim.phone != null and sim.phone.connected and not sim.show_help:
 		pill("PHONE CONNECTED / F2 SETTINGS", Rect2(555, 172, 330, 32), TEAL)
 	elif sim.hud_mode == 1 and not sim.show_help:
@@ -103,11 +108,11 @@ func _minimal(d: RigidBody3D) -> void:
 	var left := Vector2(bounds.position.x + 28, bounds.end.y - (49 if not d.armed else 27))
 	var state := "IMPACT" if d.crashed else ("ARMED" if d.armed else "DISARMED")
 	var source := "PHONE" if sim.phone != null and sim.phone.connected else ("LINK LOST" if d.remote_active else "KEYBOARD")
-	_quiet_text("%s  ·  %s  ·  %s" % [state, "ACRO" if d.acro else "ANGLE", source], left, TEAL if d.armed else INK)
+	_quiet_text('%s  ·  %d" %s  ·  %s  ·  %s' % [state, d.inches, d.profile.name, "ACRO" if d.acro else "ANGLE", source], left, TEAL if d.armed else INK)
 	if not d.armed:
-		_quiet_text("F1 help   F2 phone   F3 display   F11 full screen", left + Vector2(0, 23), Color(INK, 0.7))
+		_quiet_text("F1 help   F2 phone   F3 display   F4 airframes", left + Vector2(0, 23), Color(INK, 0.7))
 	var speed := Vector2(d.linear_velocity.x, d.linear_velocity.z).length() * 3.6
-	_quiet_text("%.1f m   %.0f km/h" % [maxf(0, d.position.y - 0.14), speed], Vector2(bounds.end.x - 196, bounds.end.y - 27), Color(INK, 0.8))
+	_quiet_text("%.1f m   %.0f km/h" % [d.height_above_pad(), speed], Vector2(bounds.end.x - 196, bounds.end.y - 27), Color(INK, 0.8))
 
 func _stick_indicators(d: RigidBody3D) -> void:
 	var bounds := _screen_bounds()
@@ -168,7 +173,7 @@ func _telemetry(d: RigidBody3D) -> void:
 	text("km/h", Vector2(198, 226), 13, MUTED)
 	line(Vector2(43, 246), Vector2(252, 246))
 	text("HEIGHT / FIELD", Vector2(43, 272), 11, MUTED)
-	text("%05.2f" % maxf(0, d.position.y - 0.14), Vector2(43, 309), 31, INK, mono)
+	text("%05.2f" % d.height_above_pad(), Vector2(43, 309), 31, INK, mono)
 	text("m", Vector2(217, 307), 13, MUTED)
 	text("VERTICAL", Vector2(43, 341), 11, MUTED)
 	text("%+.1f m/s" % d.linear_velocity.y, Vector2(151, 341), 14, INK, mono)
@@ -274,8 +279,8 @@ func _footer(d: RigidBody3D) -> void:
 	text("hover throttle", Vector2(1083, 821), 12, INK)
 	text("ESC", Vector2(1045, 847), 12, TEAL, mono)
 	text("pause", Vector2(1083, 847), 12, INK)
-	text("0.80 kg", Vector2(1291, 821), 14, INK, mono)
-	text("450-CLASS QUAD", Vector2(1278, 847), 10, MUTED)
+	text("%.0f g" % (d.mass * 1000), Vector2(1291, 821), 14, INK, mono)
+	text('%d-INCH QUAD' % d.inches, Vector2(1278, 847), 10, MUTED)
 
 func _stick(center: Vector2, value: Vector2, side: String) -> void:
 	draw_circle(center, 29, Color(0.15, 0.25, 0.25, 0.5))
@@ -306,17 +311,44 @@ func _help() -> void:
 	line(Vector2(356, 427), Vector2(1084, 427))
 	text("YOUR FIRST TAKEOFF", Vector2(356, 460), 12, TEAL, bold)
 	text("1", Vector2(356, 494), 17, TEAL, mono)
-	text("Press SPACE to arm. Hold W gently to raise throttle past ~55%.", Vector2(386, 494), 16)
+	text("Press SPACE to arm. Raise throttle past ~%d%% for this airframe." % roundi(sim.drone.hover_throttle() * 100), Vector2(386, 494), 16)
 	text("2", Vector2(356, 526), 17, TEAL, mono)
 	text("Release W to keep throttle. Tap S to descend. H sets level-hover power.", Vector2(386, 526), 16)
 	text("3", Vector2(356, 558), 17, TEAL, mono)
 	text("Use small arrow-key inputs. Aim for the teal gate. R resets after a crash.", Vector2(386, 558), 16)
 	text("ANGLE self-levels. TAB switches to ACRO; tilt stays when sticks are released.", Vector2(356, 601), 14, MUTED)
-	text("F2 pairs phone. F3 cycles displays. F11 toggles full screen. C changes camera.", Vector2(356, 625), 14, MUTED)
+	text("F2 pairs phone. F3 cycles displays. F4 chooses airframes. F11 full screen.", Vector2(356, 625), 14, MUTED)
 	text("Keyboard inputs are smoothed; real radio sticks provide much finer control.", Vector2(356, 659), 13, AMBER)
 	text("Physics-based training model. Handling needs validation against your real drone.", Vector2(356, 682), 13, MUTED)
 	draw_rect(Rect2(356, 710, 728, 42), TEAL)
 	text("ENTER   /   ENTER THE FIELD", Vector2(581, 737), 14, Color("092c2a"), bold)
+
+func _fleet() -> void:
+	_veil(Color(0.015, 0.03, 0.04, 0.20))
+	text("AIRFRAME HANGAR", Vector2(64, 95), 16, TEAL, bold)
+	text("Find your flying style.", Vector2(61, 151), 42, INK, bold)
+	text("2 / 3 / 4 / 5 to select  ·  ENTER or F4 to return to the field", Vector2(64, 187), 17, INK)
+	text("Open-prop builds · all-up mass includes battery · shared stick rates for comparison", Vector2(64, 219), 14, Color(INK, 0.8))
+	var Profiles = preload("res://scripts/drone_profiles.gd")
+	for i in range(4):
+		var inches := i + 2
+		var p := Profiles.get_profile(inches)
+		var x := 64.0 + i * 333.0
+		var selected: bool = sim.drone.inches == inches
+		panel(Rect2(x, 532, 313, 285))
+		if selected:
+			draw_rect(Rect2(x, 532, 313, 3), p.color)
+		text('%d"' % inches, Vector2(x + 20, 577), 31, p.color, bold)
+		text(p.name, Vector2(x + 80, 568), 18, INK, bold)
+		text(p.role, Vector2(x + 80, 591), 12, MUTED)
+		line(Vector2(x + 20, 610), Vector2(x + 293, 610))
+		text("%.0f g AUW     %dS / %d mAh" % [p.mass * 1000, p.cells, p.capacity], Vector2(x + 20, 637), 13, INK, mono)
+		text("%d mm frame   %d ms motor" % [roundi(p.wheelbase * 1000), roundi(p.tau * 1000)], Vector2(x + 20, 662), 13, MUTED, mono)
+		text("%.1f:1 T/W     ~%d%% hover" % [4 * p.thrust / (p.mass * 9.80665), roundi(Profiles.hover(inches) * 100)], Vector2(x + 20, 687), 13, INK, mono)
+		text(p.motor, Vector2(x + 20, 712), 12, MUTED, mono)
+		text("%.1f N total · %.0f mm props" % [4 * p.thrust, inches * 25.4], Vector2(x + 20, 740), 12, MUTED, mono)
+		pill("SELECTED" if selected else "PRESS %d TO SELECT" % inches, Rect2(x + 20, 766, 273, 32), p.color if selected else MUTED)
+	text("Representative simulation setups. Thrust, inertia, drag and response are estimates; real builds vary.", Vector2(64, 856), 14, INK)
 
 func _phone_help() -> void:
 	_veil(Color(0.015, 0.04, 0.05, 0.90))

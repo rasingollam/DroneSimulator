@@ -1,6 +1,7 @@
 """Portable project checks. Run from any directory with Python 3 and a JDK."""
 import argparse
 import hashlib
+import json
 import os
 from pathlib import Path
 import shutil
@@ -36,7 +37,7 @@ def main():
     if not javac or not java:
         parser.error("A JDK is required; supply --java-home or put javac/java on PATH.")
     run([godot, "--headless", "--path", ".", "--editor", "--import", "--quit"])
-    for script in ("physics_test.gd", "integration_test.gd", "phone_test.gd"):
+    for script in ("physics_test.gd", "profiles_test.gd", "world_test.gd", "integration_test.gd", "phone_test.gd"):
         run([godot, "--headless", "--path", ".", "--script", "tests/" + script])
     package = Path("android-controller/src/com/vectorflight/controller")
     tests = Path("android-controller/tests")
@@ -51,6 +52,10 @@ def main():
     if hashlib.sha256(artifact.read_bytes()).hexdigest() != expected:
         raise SystemExit("APK checksum does not match dist/VectorController.apk.sha256")
     print("PASS: Distributed APK matches its SHA-256 checksum", flush=True)
+    for source in json.loads((ROOT / "assets" / "sources.json").read_text()):
+        if hashlib.md5((ROOT / source["file"]).read_bytes()).hexdigest() != source["md5"]:
+            raise SystemExit("Environment asset checksum mismatch: " + source["file"])
+    print("PASS: Bundled CC0 environment assets match their source checksums", flush=True)
     run([sys.executable, "tests/transfer_test.py"])
     print("\nALL PROJECT CHECKS PASSED", flush=True)
 

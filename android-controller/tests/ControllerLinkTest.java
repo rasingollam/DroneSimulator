@@ -18,12 +18,16 @@ public final class ControllerLinkTest {
     }
     public static void main(String[] args) throws Exception {
         Path statusFile = Paths.get(args[0]), doneFile = Paths.get(args[1]);
+        JSONObject status = new JSONObject(new String(Files.readAllBytes(statusFile), StandardCharsets.UTF_8));
         ControlState controls = new ControlState();
-        ControllerLink link = new ControllerLink(controls);
+        ControllerLink link = new ControllerLink(controls, status.optInt("port", 42424));
         try {
-            JSONObject status = new JSONObject(new String(Files.readAllBytes(statusFile), StandardCharsets.UTF_8));
             link.connect("127.0.0.1", status.getString("pin"));
             until(() -> link.connected && link.paused && !link.armed, "APK sender pairs with the real Godot receiver");
+            link.action("drone2");
+            until(() -> link.droneInches == 2 && link.hoverThrottle > 0.42 && link.hoverThrottle < 0.44, "Phone selects micro and receives profile-specific hover telemetry");
+            link.action("drone5");
+            until(() -> link.droneInches == 5 && link.hoverThrottle < 0.37, "Phone restores 5-inch build and its hover setting");
             link.action("resume");
             until(() -> !link.paused, "Acknowledged Start command resumes the PC");
             link.action("arm");

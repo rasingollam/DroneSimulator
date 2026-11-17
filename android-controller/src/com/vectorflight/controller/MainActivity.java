@@ -105,7 +105,7 @@ public final class MainActivity extends Activity {
         private int buttonPointer = -1, pressedButton = -1;
         private final HapticCues cues = new HapticCues();
         private final StickHaptics haptics;
-        private final RectF[] buttons = {new RectF(24, 626, 242, 694), new RectF(258, 626, 476, 694), new RectF(492, 626, 710, 694), new RectF(726, 626, 944, 694), new RectF(960, 626, 1256, 694), new RectF(1070, 25, 1256, 82), new RectF(552, 480, 728, 535), new RectF(838, 25, 1052, 82)};
+        private final RectF[] buttons = {new RectF(24, 626, 242, 694), new RectF(258, 626, 476, 694), new RectF(492, 626, 710, 694), new RectF(726, 626, 944, 694), new RectF(960, 626, 1256, 694), new RectF(1070, 25, 1256, 82), new RectF(552, 480, 728, 535), new RectF(838, 25, 1052, 82), new RectF(276, 25, 492, 82)};
 
         PadView() {
             super(MainActivity.this); setFocusable(true); setContentDescription("Two-stick drone controller");
@@ -139,6 +139,7 @@ public final class MainActivity extends Activity {
             stick(c, 995, 366, raw[3], raw[2], "RIGHT STICK", "PITCH / ROLL");
             label(c, String.format(Locale.US, "%02d%%", Math.round(raw[0] * 100)), 596, 231, 42, teal, true);
             label(c, "THROTTLE", 593, 256, 12, muted, true);
+            label(c, "HOVER ~" + Math.round(link.hoverThrottle * 100) + "%", 588, 278, 12, muted, false);
             label(c, link.armed ? "ARMED" : "DISARMED", link.armed ? 600 : 580, 320, 19, link.armed ? teal : amber, true);
             label(c, link.acro ? "ACRO / RATE" : "ANGLE / LEVEL", 575, 349, 14, ink, true);
             label(c, String.format(Locale.US, "%.1f m", link.height), 598, 407, 23, ink, false);
@@ -155,6 +156,7 @@ public final class MainActivity extends Activity {
             drawButton(c, 5, "CONNECT", false);
             drawButton(c, 6, "HELP", false);
             drawButton(c, 7, !haptics.isAvailable() ? "NO VIBRATOR" : (haptics.isEnabled() ? "HAPTICS ON" : "HAPTICS OFF"), false);
+            drawButton(c, 8, link.droneInches + "\" AIRFRAME", false);
             c.restore();
             postInvalidateOnAnimation();
         }
@@ -229,7 +231,7 @@ public final class MainActivity extends Activity {
                 case 6:
                     controls.center(); link.action("pause");
                     new AlertDialog.Builder(MainActivity.this).setTitle("Your first touch-controlled flight")
-                        .setMessage("1. Press F2 on the PC. CONNECT using its address and pairing code.\n\n2. Tap START / RESUME, then ARM.\n\n3. Drag your left thumb upward slowly to about 55% throttle. Release to keep that setting. Drag downward to descend. Left/right movement controls yaw.\n\n4. Drag your right thumb up/down for pitch, left/right for roll. Release to center.\n\nHAPTICS: A tap confirms stick pickup, a light tick marks neutral, and a stronger bump marks full travel. Throttle has feedback at zero/full, not at its midpoint. Turn feedback on/off with HAPTICS. Enable touch vibration in Android settings if needed. The phone vibrates as a whole; it cannot identify each thumb separately.\n\nANGLE self-levels; ACRO retains tilt. Start in ANGLE. Watch the PC screen while using both thumbs.\n\nRESET returns to the pad, disarmed. Closing or leaving the app pauses and disarms the PC after half a second. Use a real radio later for physical stick practice.")
+                        .setMessage("1. Press F2 on the PC. CONNECT using its address and pairing code.\n\n2. Tap START / RESUME, then ARM.\n\n3. Choose an AIRFRAME while disarmed. Drag your left thumb upward slowly past the HOVER value shown for that airframe. Release to keep that setting. Drag downward to descend. Left/right movement controls yaw.\n\n4. Drag your right thumb up/down for pitch, left/right for roll. Release to center.\n\nHAPTICS: A tap confirms stick pickup, a light tick marks neutral, and a stronger bump marks full travel. Throttle has feedback at zero/full, not at its midpoint. Turn feedback on/off with HAPTICS. Enable touch vibration in Android settings if needed. The phone vibrates as a whole; it cannot identify each thumb separately.\n\nANGLE self-levels; ACRO retains tilt. Start in ANGLE. Watch the PC screen while using both thumbs.\n\nRESET returns to the pad, disarmed. Closing or leaving the app pauses and disarms the PC after half a second. Use a real radio later for physical stick practice.")
                         .setPositiveButton("Got it", null).show();
                     break;
                 case 7:
@@ -241,6 +243,21 @@ public final class MainActivity extends Activity {
                     prefs.edit().putBoolean("haptics", haptics.isEnabled()).apply();
                     if (haptics.isEnabled() && !haptics.pulse(HapticCues.PICKUP))
                         Toast.makeText(MainActivity.this, "Enable touch vibration / haptic feedback in Android settings if you feel no tap.", Toast.LENGTH_LONG).show();
+                    break;
+                case 8:
+                    if (!link.connected) {
+                        Toast.makeText(MainActivity.this, "Connect to the PC first.", Toast.LENGTH_SHORT).show();
+                        break;
+                    }
+                    if (link.armed) {
+                        Toast.makeText(MainActivity.this, "Disarm before changing airframe.", Toast.LENGTH_SHORT).show();
+                        break;
+                    }
+                    link.action("pause");
+                    new AlertDialog.Builder(MainActivity.this).setTitle("Choose your airframe")
+                        .setItems(new String[]{"2-inch MICRO · 60 g · light micro", "3-inch SCOUT · 125 g · light freestyle", "4-inch RANGE · 229 g · explorer", "5-inch APEX · 652 g · freestyle"},
+                            (dialog, choice) -> { controls.reset(); link.action("drone" + (choice + 2)); })
+                        .setNegativeButton("Cancel", null).show();
                     break;
                 default: break;
             }

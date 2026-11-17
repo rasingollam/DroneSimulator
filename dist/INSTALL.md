@@ -1,13 +1,15 @@
 # Install Vector Controller on your Android phone
 
-**Version 1.1 adds haptic feedback.** Install this APK over the existing Vector Controller app; the package and signing key are unchanged, so you do not need to uninstall the previous version.
+**Version 1.2 adds airframe selection and profile-specific hover guidance**, retaining haptic feedback. Install this APK over the existing app; the package and signing key are unchanged. It requires the updated PC simulator for airframe switching; old phone builds still control the PC, with size selection available on the PC keyboard.
 
 1. Copy **VectorController.apk** from this folder to your phone with a USB cable, then open it on the phone. Alternatively, double-click **Install-on-phone.cmd** in the project folder and open the displayed local address in your phone browser to download the APK over Wi-Fi. This helper shares only the APK and its installation page. Close its window when finished.
 2. Android may ask you to allow installation from the browser or file manager you used. Enable that permission for this installation. The APK is locally signed for direct installation; it is not a Play Store release. You can revoke the installer permission afterward.
 3. Connect phone and PC to the **same private Wi-Fi network**. The PC may also use Ethernet on the same LAN. Avoid guest Wi-Fi/client isolation and VPNs while pairing.
 4. Double-click **Launch.cmd** on the PC and press **F2**. Keep this simulator window open. Enter its IPv4 address and six-digit pairing code in the phone app. The code changes each time you restart the simulator.
 5. If Windows Firewall asks, allow Godot on **Private networks**. If using Wi-Fi APK transfer, allow Python on Private networks too. The simulator receives on **UDP 42424**; the optional download helper uses **TCP 8765**. No router port forwarding is needed.
-6. After the phone says **CONNECTED**, tap **START / RESUME**, then **ARM**. Slowly drag your left thumb upward until throttle is slightly above 55%. Release to keep throttle. Drag downward to descend. Start in Angle mode.
+6. After the phone says **CONNECTED**, select an **AIRFRAME** while disarmed if desired, then tap **START / RESUME** and **ARM**. Slowly raise throttle just above the displayed **HOVER** setting (default 5-inch: about 36%). Release to keep throttle. Drag downward to descend. Start in Angle mode.
+
+Use the phone's **AIRFRAME** button to choose 2-, 3-, 4- or 5-inch representative builds. Selection pauses and resets flight, leaves motors disarmed, and updates the HOVER label. On the PC, F4 opens a comparison/model preview and number keys 2–5 select sizes. See `docs/DRONE_PROFILES.md` for source data, estimates and limits.
 
 ## Stick behavior
 

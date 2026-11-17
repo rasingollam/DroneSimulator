@@ -32,6 +32,7 @@ func tap(code: Key) -> void:
 
 func run() -> void:
 	sim = load("res://scenes/main.tscn").instantiate()
+	sim.set_meta("controller_port", 0)
 	root.add_child(sim)
 	current_scene = sim
 	await process_frame
@@ -40,6 +41,13 @@ func run() -> void:
 	check(paused and sim.show_help, "F1 opens the guide and pauses the world")
 	await tap(KEY_ENTER)
 	check(not paused and not sim.show_help, "Enter dismisses guide and begins simulation")
+	await tap(KEY_F4)
+	check(sim.show_fleet and paused, "F4 opens the airframe comparison and pauses physics")
+	await tap(KEY_2)
+	check(sim.drone.inches == 2 and not sim.drone.armed, "Number key selects a disarmed micro airframe")
+	await tap(KEY_5)
+	await tap(KEY_ENTER)
+	check(sim.drone.inches == 5 and not sim.show_fleet and not paused, "Selection can return to the field with the chosen 5-inch build")
 	await tap(KEY_SPACE)
 	check(sim.drone.armed and sim.drone.throttle == 0.0, "Space arms at zero throttle")
 	await key(KEY_W)
@@ -55,7 +63,7 @@ func run() -> void:
 	await key(KEY_S, false)
 	check(sim.drone.throttle < released_throttle - 0.05, "Physical S input decreases throttle")
 	await tap(KEY_H)
-	check(absf(sim.drone.throttle - 0.54932) < 0.001, "H applies analytical hover power")
+	check(absf(sim.drone.throttle - sim.drone.hover_throttle()) < 0.001, "H applies the selected airframe's analytical hover power")
 	await key(KEY_D)
 	await steps(120)
 	await key(KEY_D, false)

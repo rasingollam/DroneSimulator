@@ -31,6 +31,9 @@ var audio_phase := 0.0
 var muted := false
 var phone: Node
 var show_phone := false
+var show_fleet := false
+var fleet_was_paused := false
+var best_laps := {}
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -69,7 +72,13 @@ func _ready() -> void:
 func _unhandled_key_input(event: InputEvent) -> void:
 	if not event is InputEventKey or not event.pressed or event.echo:
 		return
+	if show_fleet and event.physical_keycode not in [KEY_F4, KEY_ENTER, KEY_ESCAPE, KEY_2, KEY_3, KEY_4, KEY_5, KEY_F11]:
+		return
 	match event.physical_keycode:
+		KEY_F4:
+			toggle_fleet()
+		KEY_2, KEY_3, KEY_4, KEY_5:
+			select_airframe(int(event.physical_keycode - KEY_0))
 		KEY_F11:
 			var mode := DisplayServer.window_get_mode()
 			var is_fullscreen := mode == DisplayServer.WINDOW_MODE_FULLSCREEN or mode == DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN
@@ -85,7 +94,9 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		KEY_K:
 			phone.use_keyboard()
 		KEY_ENTER:
-			if show_help:
+			if show_fleet:
+				toggle_fleet()
+			elif show_help:
 				show_help = false
 				get_tree().paused = paused
 				flash("SPACE TO ARM  /  HOLD W GENTLY TO LIFT OFF")
@@ -93,7 +104,10 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			show_help = not show_help
 			get_tree().paused = show_help or paused
 		KEY_ESCAPE:
-			if show_help:
+			if show_fleet:
+				toggle_fleet()
+				return
+			elif show_help:
 				show_help = false
 			else:
 				paused = not paused
@@ -110,7 +124,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			toggle_mode()
 		KEY_H:
 			if drone.armed and not paused and not show_help and not drone.remote_active:
-				drone.throttle = sqrt(drone.mass * 9.80665 / (4.0 * drone.MAX_THRUST))
+				drone.throttle = drone.hover_throttle()
 				flash("LEVEL HOVER THROTTLE SET  /  NO ALTITUDE HOLD")
 		KEY_B:
 			wind_level = (wind_level + 1) % 3
@@ -130,6 +144,33 @@ func reset_flight() -> void:
 	field.set_active_gate(next_gate)
 	previous_position = drone.spawn_transform.origin
 	flash("RETURNED TO LANDING PAD / ARM TO FLY")
+
+func toggle_fleet() -> void:
+	if drone.armed:
+		flash("DISARM BEFORE CHANGING AIRFRAME")
+		return
+	show_fleet = not show_fleet
+	if show_fleet:
+		fleet_was_paused = paused
+		reset_flight()
+		show_help = false
+		show_phone = false
+		paused = true
+	else:
+		paused = fleet_was_paused
+	get_tree().paused = paused
+
+func select_airframe(inches: int) -> bool:
+	if drone.armed:
+		flash("DISARM BEFORE CHANGING AIRFRAME")
+		return false
+	if not drone.configure(inches):
+		return false
+	reset_flight()
+	completed_laps = 0
+	best_lap = best_laps.get(inches, 0.0)
+	flash('%d-INCH %s / HOVER ABOUT %d%%' % [inches, drone.profile.name, roundi(drone.hover_throttle() * 100)])
+	return true
 
 func toggle_camera() -> void:
 	fpv = not fpv
@@ -166,21 +207,31 @@ func _physics_process(delta: float) -> void:
 func _process(delta: float) -> void:
 	message_time = maxf(0.0, message_time - delta)
 	# Cameras do not alter the aircraft's simulated orientation.
-	if fpv:
-		camera.global_transform = drone.global_transform * Transform3D(Basis(Vector3.RIGHT, deg_to_rad(fpv_tilt)), Vector3(0, 0.065, -0.16))
+	if show_fleet:
+		var orbit := Time.get_ticks_msec() * 0.00020
+		var radius: float = drone.profile.wheelbase * 2.5
+		camera.fov = 55.0
+		camera.global_position = drone.global_position + Vector3(sin(orbit) * radius, radius * 0.58, cos(orbit) * radius)
+		camera.look_at(drone.global_position - Vector3.UP * drone.profile.wheelbase * 0.10)
+	elif fpv:
+		camera.fov = 105.0
+		var scale: float = drone.profile.wheelbase / 0.245
+		camera.global_transform = drone.global_transform * Transform3D(Basis(Vector3.RIGHT, deg_to_rad(fpv_tilt)), Vector3(0, 0.018, -0.070) * scale)
 	else:
+		camera.fov = 85.0
 		var behind := Vector3(drone.global_basis.z.x, 0, drone.global_basis.z.z).normalized()
 		if behind.length_squared() < 0.1:
 			behind = Vector3.BACK
-		var target := drone.global_position + behind * 4.6 + Vector3.UP * 1.9
+		var distance: float = clampf((drone.ARM * 2.0 + drone.inches * 0.0254) * 6.0, 1.15, 2.2)
+		var target := drone.global_position + behind * distance + Vector3.UP * distance * 0.45
 		# Keep chase view outside static scenery using a camera obstruction ray.
 		var query := PhysicsRayQueryParameters3D.create(drone.global_position + Vector3.UP * 0.3, target)
 		query.exclude = [drone.get_rid()]
 		var hit := get_world_3d().direct_space_state.intersect_ray(query)
 		if not hit.is_empty():
 			target = hit.position + hit.normal * 0.25
-		camera.global_position = camera.global_position.lerp(target, 1.0 - exp(-delta * 7.0))
-		camera.look_at(drone.global_position + Vector3.UP * 0.3 - drone.global_basis.z * 2.0)
+		camera.global_position = target
+		camera.look_at(drone.global_position + Vector3.UP * 0.12 - drone.global_basis.z * 0.9)
 	_update_audio()
 	hud.queue_redraw()
 
@@ -197,6 +248,7 @@ func _check_gate() -> void:
 					completed_laps += 1
 					if best_lap <= 0.0 or lap_time < best_lap:
 						best_lap = lap_time
+						best_laps[drone.inches] = best_lap
 					flash("LAP %d COMPLETE  /  %.2f S" % [completed_laps, lap_time])
 				else:
 					flash("COURSE STARTED  /  FOLLOW THE TEAL GATE")

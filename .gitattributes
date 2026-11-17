@@ -11,3 +11,6 @@
 *.cmd text eol=crlf
 *.apk binary
 *.png binary
+*.jpg binary
+*.hdr binary
+*.gdshader text eol=lf

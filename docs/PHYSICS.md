@@ -1,45 +1,42 @@
 # Physics model
 
-The aircraft is a Godot `RigidBody3D`. Translation and rotation come from forces, gravity and contact response, not scripted flight movement. The controller adjusts motor forces in `_integrate_forces()` at **240 physics ticks per second**. See [Godot's rigid-body documentation](https://docs.godotengine.org/en/4.5/tutorials/physics/rigid_body.html).
+Each airframe is a Godot `RigidBody3D`. Translation/rotation result from forces, gravity and contacts, not scripted flight movement. Motor forces are applied in `_integrate_forces()` at **240 physics ticks per second**. [Godot rigid-body documentation](https://docs.godotengine.org/en/4.5/tutorials/physics/rigid_body.html).
 
-| Quantity | Value |
-| --- | --- |
-| Mass | 0.80 kg |
-| Diagonal inertia | (0.005, 0.009, 0.005) kg·m² |
-| Motor offsets | ±0.165 m in body X/Z |
-| Diagonal motor spacing | 0.467 m, 450-class frame |
-| Visual propeller diameter | 0.229 m, approximately 9 inches |
-| Maximum thrust | 6.5 N per motor |
-| Motor time constant | 0.045 s |
-| Reaction torque / thrust | 0.018 m |
-| Gravity | 9.80665 m/s² |
-| Air density | 1.225 kg/m³ |
-| Effective drag areas X/Y/Z | (0.035, 0.075, 0.035) m² |
+## Per-airframe parameters
 
-## Forces and control
+The authoritative values are in `scripts/drone_profiles.gd`. See [DRONE_PROFILES.md](DRONE_PROFILES.md) for the hardware references and which parameters are estimated.
 
-Four normalized motor speeds approach their targets using first-order dynamics. Each produces `thrust = maximum_thrust * speed²` along body up at its own position. Counter-rotating diagonal pairs contribute opposite reaction torques.
+| Profile | Mass kg | Inertia X/Y/Z kg·m² | Diagonal m | Thrust/motor N | Spool s | Reaction torque/thrust m |
+| --- | --- | --- | --- | --- | --- | --- |
+| 2-inch | 0.060 | 0.000019 / 0.000034 / 0.000021 | 0.095 | 0.80 | 0.018 | 0.0055 |
+| 3-inch | 0.125 | 0.00010 / 0.000175 / 0.000115 | 0.143 | 1.70 | 0.025 | 0.0080 |
+| 4-inch | 0.229 | 0.00031 / 0.00055 / 0.00036 | 0.186 | 3.10 | 0.035 | 0.0105 |
+| 5-inch | 0.652 | 0.0017 / 0.0030 / 0.0019 | 0.245 | 12.50 | 0.045 | 0.0140 |
 
-A body-rate PID controller computes desired torque. Mixing combines collective power, pitch/roll torque and yaw reaction torque; outputs saturate to motor limits. Integral bounds and ground/low-throttle reset reduce windup; derivative filtering reduces noise.
+Mass includes an assumed pack. Center-of-mass height is an estimate above the carbon frame. The frame and battery have separate simplified box colliders; individual blades do not collide. Inertias are positive and satisfy the rigid-body principal-inertia triangle inequalities.
 
-Angle mode adds a geometric leveling loop and commands up to 30° bank/pitch. Acro commands up to 4.2 rad/s pitch/roll and 2.8 rad/s yaw. Releasing an Acro stick stops rotation while retaining tilt. Neither mode holds altitude or position.
+## Motor and control dynamics
 
-Quadratic drag uses body-coordinate air-relative velocity and axis-dependent effective areas. Small quadratic rotational drag is also applied. Wind changes relative air velocity. Godot calculates gravity, friction and restitution; continuous collision detection reduces tunneling.
+Four normalized rotor speeds approach targets with first-order time constants. Each produces `T = Tmax * speed²` at its own location, along body up. Counter-rotating diagonals produce opposite reaction torques. Collective command is quadratic in throttle.
 
-The H shortcut sets power once:
+A body-rate controller computes body torque, using estimated inertia to scale proportional, integral and filtered derivative terms. The mixer translates collective and torque into motor targets, saturating each at physical limits. Integral bounds and ground/low-throttle reset reduce windup.
 
-```text
-hover_throttle = sqrt(mass * gravity / (4 * maximum_motor_thrust)) ≈ 0.55
-```
+All profiles share 4.2 rad/s pitch/roll and 2.8 rad/s yaw rate limits for fair comparisons. Angle mode adds a geometric leveling loop with up to 30° bank/pitch. Acro release stops rotation but retains tilt. Neither mode holds altitude or position.
 
-This balances weight only when level at nominal parameters. It does not cancel existing vertical velocity or compensate for banking.
+Hover power is `sqrt(m*g/(4*Tmax))` in free air, using gravity **9.80665 m/s²**. H sets this power once; it does not cancel existing vertical velocity. The selected profile's hover value is also sent to the phone.
 
-## Contacts and limits
+## Aerodynamics and ground
 
-The collider is a simplified frame envelope, not individual propeller blades. Contact after pre-contact speed above 3.8 m/s triggers a crash and disarms. This is a simple threshold, not structural stress analysis. Reset returns to the landing pad, disarmed. Leaving the field boundary also returns the aircraft to the pad.
+Body-coordinate air-relative speed drives `-0.5 * density * drag_area * velocity * abs(velocity)` with density **1.225 kg/m³** and profile-specific effective areas. Effective linear rotor-plane drag scales with current thrust. Small quadratic rotational drag scales with inertia. These are low-order engineering approximations, not a blade-element solver.
 
-Height is relative to the flat field datum, not radar altitude above terrain or obstacles. Camera tracking and HUD indicators do not affect aircraft dynamics.
+Wind/gusts alter relative air velocity. A downward ray measures nearby ground when the aircraft is near level. A bounded classical rotor/ground lift-factor approximation increases lift by at most **15%** at very low clearance. It does not model propwash or vortex-ring behavior. Geometry/terrain contacts, friction and restitution remain engine-driven; continuous collision detection reduces tunneling.
 
-Coefficients are engineering approximations. Detailed blade aerodynamics, propwash, vortex-ring state, ground effect, battery sag, flexible frames, ESC internals, radio latency and structural damage are omitted. The procedural world is not photorealistic.
+The crash cutoff uses contact plus speed above **3.8 m/s** within the preceding **33 ms**. The short history handles CCD stopping a body before the engine reports contact. This is a training reset threshold, not structural stress analysis. Reset clears motor state, velocities and controller history, and returns disarmed to the pad.
 
-For closer transfer to real flight, measure mass, inertia, thrust/torque curves and drag, then tune rates and controller gains against real flight logs. Physical-radio/gamepad input would improve precision and muscle-memory transfer. The simulator does not establish real-world flight proficiency.
+Height telemetry is relative to the flat field datum, not radar altitude over terrain or obstacles. The environmental grass/foliage animation is decorative; air forces use the simulator's explicit wind vector.
+
+## Limits
+
+Detailed blade aerodynamics, propwash, vortex-ring state, battery discharge/sag, flexible frames, ESC internals, radio latency and structural damage are omitted. Pack cell count/capacity and motor KV describe the representative configuration; they do not independently generate a measured power curve. Thrust, drag, inertia and motor response are estimated, not fitted to real flight logs.
+
+The automated tests establish force balance, stable control, directionality, mode behavior, switching and collision handling for each profile. They do not establish real-flight accuracy. A physical radio and calibration against measured hardware/logs are required for close transfer to a particular aircraft.

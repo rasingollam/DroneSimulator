@@ -3,7 +3,7 @@ config_version=5
 [application]
 config/name="Vector — Flight Lab"
 run/main_scene="res://scenes/main.tscn"
-config/features=PackedStringArray("4.5", "GL Compatibility")
+config/features=PackedStringArray("4.5", "Forward Plus")
 config/description="A physics-based quadcopter training field."
 
 [display]
@@ -20,7 +20,9 @@ common/physics_ticks_per_second=240
 3d/default_gravity=9.80665
 
 [rendering]
-renderer/rendering_method="gl_compatibility"
+anti_aliasing/quality/msaa_3d=1
+textures/default_filters/anisotropic_filtering_level=3
+renderer/rendering_method="forward_plus"
 renderer/rendering_method.mobile="gl_compatibility"
 textures/default_filters/use_nearest_mipmap_filter=false
 environment/defaults/default_clear_color=Color(0.53, 0.68, 0.76, 1)

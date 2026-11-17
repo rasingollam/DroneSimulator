@@ -12,6 +12,7 @@ func _initialize() -> void:
 
 func start() -> void:
 	sim = load("res://scenes/main.tscn").instantiate()
+	sim.set_meta("controller_port", 0)
 	root.add_child(sim)
 	current_scene = sim
 	ready_to_test = true
@@ -41,4 +42,4 @@ func finish() -> void:
 func _write_status() -> void:
 	var file := FileAccess.open("res://tools/controller_host.json", FileAccess.WRITE)
 	file.store_string(JSON.stringify({"pin": sim.phone.pin, "connected": sim.phone.connected,
-		"paused": paused, "armed": sim.drone.armed, "height": sim.drone.position.y}))
+		"paused": paused, "armed": sim.drone.armed, "height": sim.drone.position.y, "port": sim.phone.listen_port}))

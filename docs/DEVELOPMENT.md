@@ -15,12 +15,13 @@ Keep downloaded engines, SDKs and keys outside source control. The ignored `tool
 python tests/run_checks.py --godot /path/to/godot --java-home /path/to/jdk-17
 ```
 
-The runner accepts `GODOT_BIN` and `JAVA_HOME`, searches PATH, and recognizes the optional local workspace tool layout. Godot tests run sequentially because the simulator binds UDP 42424. Close other simulator windows first. Local UDP/HTTP networking must be allowed.
+The runner accepts `GODOT_BIN` and `JAVA_HOME`, searches PATH, and recognizes the optional local workspace tool layout. Tests, including the additional Java sender harness, use isolated ephemeral UDP ports so an open game is not affected. Local UDP/HTTP networking must be allowed. The Android app itself continues using UDP 42424.
 
 Individual checks:
 
 ```bash
 godot --headless --path . --script tests/physics_test.gd
+godot --headless --path . --script tests/profiles_test.gd
 godot --headless --path . --script tests/integration_test.gd
 godot --headless --path . --script tests/phone_test.gd
 python tests/transfer_test.py
@@ -28,6 +29,8 @@ godot --path . --script tests/visual_capture.gd
 ```
 
 The capture script briefly runs the full-screen scene and saves ignored screenshots under `tests/`. Review the guide, pairing, chase and FPV views. Do not publish active pairing codes or private network details.
+
+Visuals now use Forward+ and a Vulkan-capable GPU. `Launch-low-graphics.cmd` or `--rendering-method gl_compatibility` offers reduced effects on older hardware. CC0 source assets are bundled under `assets/environment/`; provenance/checksums are in `assets/sources.json` and attribution is in `THIRD_PARTY_NOTICES.md`. Sky/vegetation/terrain are authored to work without an external asset downloader.
 
 `tests/controller_host.gd` and `android-controller/tests/ControllerLinkTest.java` provide an additional sender-to-Godot harness. It uses the APK sender source with a desktop monotonic-clock substitute and desktop `org.json` implementation. Start the host, then run the compiled Java harness with `tools/controller_host.json` and `tools/controller_test.done` arguments. The default suite tests the real receiver with UDP without this additional JSON dependency.
 

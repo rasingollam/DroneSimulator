@@ -14,6 +14,7 @@ import org.json.JSONObject;
 public final class ControllerLink {
     public static final int PORT = 42424;
     private final ControlState controls;
+    private final int serverPort;
     private final ArrayDeque<String> commands = new ArrayDeque<>();
     private volatile int generation;
     private volatile DatagramSocket socket;
@@ -21,8 +22,11 @@ public final class ControllerLink {
     public volatile String status = "Tap CONNECT to pair with your PC";
     public volatile int rtt;
     public volatile double height, speed;
+    public volatile int droneInches = 5;
+    public volatile double hoverThrottle = 0.358;
 
-    public ControllerLink(ControlState controls) { this.controls = controls; }
+    public ControllerLink(ControlState controls) { this(controls, PORT); }
+    ControllerLink(ControlState controls, int serverPort) { this.controls = controls; this.serverPort = serverPort; }
 
     public synchronized void action(String command) {
         if (!connected) return;
@@ -59,7 +63,7 @@ public final class ControllerLink {
         try {
             InetAddress address = InetAddress.getByName(host);
             udp = new DatagramSocket();
-            udp.connect(address, PORT);
+            udp.connect(address, serverPort);
             udp.setSoTimeout(2);
             if (run != generation) return;
             socket = udp;
@@ -109,6 +113,8 @@ public final class ControllerLink {
                     armed = reply.optBoolean("armed"); paused = reply.optBoolean("paused");
                     acro = reply.optBoolean("acro"); crashed = reply.optBoolean("crashed");
                     fpv = reply.optBoolean("fpv"); height = reply.optDouble("height"); speed = reply.optDouble("speed");
+                    droneInches = reply.optInt("drone_inches", droneInches);
+                    hoverThrottle = reply.optDouble("hover_throttle", hoverThrottle);
                     rtt = (int)Math.max(0, Math.min(9999, lastAck - reply.optLong("sent", lastAck)));
                     if (!armed) controls.reset();
                     if (reply.optLong("action_ack") >= actionId) pending = "";

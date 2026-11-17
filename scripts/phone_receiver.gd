@@ -3,7 +3,7 @@ extends Node
 
 const PORT := 42424
 const TIMEOUT_MS := 500
-const ACTIONS := ["", "arm", "disarm", "reset", "camera", "mode", "pause", "resume", "disconnect"]
+const ACTIONS := ["", "arm", "disarm", "reset", "camera", "mode", "pause", "resume", "disconnect", "drone2", "drone3", "drone4", "drone5"]
 var sim: Node3D
 var socket := PacketPeerUDP.new()
 var pin := ""
@@ -19,6 +19,7 @@ var action_ack := 0
 var last_received_ms := 0
 var received_packets := 0
 var loss_reason := "Waiting for phone"
+var listen_port := PORT
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -26,7 +27,10 @@ func _ready() -> void:
 	for address in IP.get_local_addresses():
 		if address.count(".") == 3 and not address.begins_with("127.") and not address.begins_with("169.254."):
 			addresses.append(address)
-	listen_error = socket.bind(PORT, "0.0.0.0", 65536)
+	# Test scenes use an ephemeral port so they never collide with a running game.
+	listen_error = socket.bind(int(sim.get_meta("controller_port", PORT)), "0.0.0.0", 65536)
+	if listen_error == OK:
+		listen_port = socket.get_local_port()
 	if listen_error != OK:
 		loss_reason = "Port 42424 unavailable; close other simulator windows"
 
@@ -107,8 +111,9 @@ func _accept(packet: Dictionary, ip: String, port: int) -> void:
 	var reply := {"v": 1, "session": session, "seq": last_sequence, "sent": packet.sent,
 		"action_ack": action_ack, "armed": sim.drone.armed, "paused": sim.get_tree().paused,
 		"acro": sim.drone.acro, "crashed": sim.drone.crashed, "fpv": sim.fpv,
-		"height": maxf(0, sim.drone.position.y - 0.14), "speed": sim.drone.linear_velocity.length() * 3.6,
-		"throttle": sim.drone.throttle}
+		"height": sim.drone.height_above_pad(), "speed": sim.drone.linear_velocity.length() * 3.6,
+		"throttle": sim.drone.throttle, "drone_inches": sim.drone.inches,
+		"drone_name": sim.drone.profile.name, "hover_throttle": sim.drone.hover_throttle()}
 	socket.set_dest_address(ip, port)
 	socket.put_packet(JSON.stringify(reply).to_utf8_buffer())
 
@@ -129,12 +134,15 @@ func _action(action: String) -> void:
 			sim.paused = true
 			sim.get_tree().paused = true
 		"resume":
+			sim.show_fleet = false
 			sim.show_help = false
 			sim.show_phone = false
 			sim.paused = false
 			sim.get_tree().paused = false
 		"disconnect":
 			lose_link("PHONE DISCONNECTED / FLIGHT PAUSED")
+		"drone2", "drone3", "drone4", "drone5":
+			sim.select_airframe(int(action.right(1)))
 
 func lose_link(reason: String) -> void:
 	connected = false

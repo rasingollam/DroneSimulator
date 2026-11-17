@@ -28,12 +28,13 @@ func send(changes: Dictionary = {}) -> void:
 
 func run() -> void:
 	sim = load("res://scenes/main.tscn").instantiate()
+	sim.set_meta("controller_port", 0)
 	root.add_child(sim)
 	current_scene = sim
 	await process_frame
-	check(sim.phone.listen_error == OK, "UDP listener binds port 42424")
+	check(sim.phone.listen_error == OK, "UDP listener binds its isolated test port")
 	client.bind(0, "127.0.0.1")
-	client.set_dest_address("127.0.0.1", 42424)
+	client.set_dest_address("127.0.0.1", sim.phone.listen_port)
 	await send({"pin": "invalid"})
 	check(not sim.phone.connected, "Wrong pairing code cannot take control")
 	await send({"pin": sim.phone.pin, "throttle": 0.7})
@@ -57,7 +58,7 @@ func run() -> void:
 	check(is_equal_approx(sim.drone.remote_throttle, 0.58), "Out-of-range control packets are rejected")
 	var rogue := PacketPeerUDP.new()
 	rogue.bind(0, "127.0.0.1")
-	rogue.set_dest_address("127.0.0.1", 42424)
+	rogue.set_dest_address("127.0.0.1", sim.phone.listen_port)
 	var rogue_packet := packet.duplicate()
 	rogue_packet.throttle = 0.0
 	rogue_packet.session = "second-phone-session"
@@ -82,6 +83,15 @@ func run() -> void:
 	check(not paused, "A fresh explicit resume command works after reconnect")
 	await send({"action": "reset", "action_id": 7})
 	check(not sim.drone.armed and sim.next_gate == 0, "Remote reset restores safe flight state")
+	await send({"action": "drone2", "action_id": 8})
+	check(sim.drone.inches == 2 and reply.drone_inches == 2, "Phone selects a 2-inch airframe and receives its identity")
+	check(absf(reply.hover_throttle - sim.drone.hover_throttle()) < 0.001, "Phone receives the selected airframe's hover setting")
+	await send({"action": "arm", "action_id": 9})
+	await send({"action": "drone5", "action_id": 10})
+	check(sim.drone.inches == 2 and sim.drone.armed, "Remote airframe changes are blocked while armed")
+	await send({"action": "disarm", "action_id": 11})
+	await send({"action": "drone5", "action_id": 12})
+	check(sim.drone.inches == 5 and not sim.drone.armed, "Remote disarmed switching restores the 5-inch build safely")
 	sim.phone.use_keyboard()
 	check(not sim.phone.enabled and not sim.drone.remote_active and not sim.phone.connected, "Keyboard handover releases remote ownership")
 	client.close()

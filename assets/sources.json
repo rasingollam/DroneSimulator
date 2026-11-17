@@ -1,0 +1,102 @@
+[
+  {
+    "asset": "aerial_grass_rock",
+    "channel": "Diffuse",
+    "file": "assets/environment/rock_color.jpg",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/aerial_grass_rock/aerial_grass_rock_diff_2k.jpg",
+    "md5": "024018554c0002620127749d1f585f3d",
+    "source": "https://polyhaven.com/a/aerial_grass_rock",
+    "license": "CC0-1.0",
+    "license_url": "https://polyhaven.com/license"
+  },
+  {
+    "asset": "grass_ground",
+    "channel": "Diffuse",
+    "file": "assets/environment/grass_color.jpg",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/grass_ground/grass_ground_diff_2k.jpg",
+    "md5": "fd97f2402677e6686b2d9159fc3a4256",
+    "source": "https://polyhaven.com/a/grass_ground",
+    "license": "CC0-1.0",
+    "license_url": "https://polyhaven.com/license"
+  },
+  {
+    "asset": "grass_ground",
+    "channel": "nor_gl",
+    "file": "assets/environment/grass_normal.jpg",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/grass_ground/grass_ground_nor_gl_1k.jpg",
+    "md5": "d518c5b2af6f2c0297bc807b351f511f",
+    "source": "https://polyhaven.com/a/grass_ground",
+    "license": "CC0-1.0",
+    "license_url": "https://polyhaven.com/license"
+  },
+  {
+    "asset": "asphalt_02",
+    "channel": "Diffuse",
+    "file": "assets/environment/asphalt_color.jpg",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/asphalt_02/asphalt_02_diff_1k.jpg",
+    "md5": "fa19772d4817754c3efab708c651f5a8",
+    "source": "https://polyhaven.com/a/asphalt_02",
+    "license": "CC0-1.0",
+    "license_url": "https://polyhaven.com/license"
+  },
+  {
+    "asset": "asphalt_02",
+    "channel": "nor_gl",
+    "file": "assets/environment/asphalt_normal.jpg",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/asphalt_02/asphalt_02_nor_gl_1k.jpg",
+    "md5": "338da8de636ea36133170578cac82e8e",
+    "source": "https://polyhaven.com/a/asphalt_02",
+    "license": "CC0-1.0",
+    "license_url": "https://polyhaven.com/license"
+  },
+  {
+    "asset": "brown_mud_02",
+    "channel": "Diffuse",
+    "file": "assets/environment/soil_color.jpg",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/brown_mud_02/brown_mud_02_diff_1k.jpg",
+    "md5": "c3842f023e11a08c8cf521c947ce08c8",
+    "source": "https://polyhaven.com/a/brown_mud_02",
+    "license": "CC0-1.0",
+    "license_url": "https://polyhaven.com/license"
+  },
+  {
+    "asset": "bark_brown_01",
+    "channel": "Diffuse",
+    "file": "assets/environment/bark_color.jpg",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/bark_brown_01/bark_brown_01_diff_1k.jpg",
+    "md5": "b6d5dcde10b7cd1b36d70cd33a34724a",
+    "source": "https://polyhaven.com/a/bark_brown_01",
+    "license": "CC0-1.0",
+    "license_url": "https://polyhaven.com/license"
+  },
+  {
+    "asset": "pine_tree_01",
+    "channel": "twig_diff",
+    "file": "assets/environment/pine_color.jpg",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/pine_tree_01/pine_tree_01_twig_diff_1k.jpg",
+    "md5": "b6e5f4e8c228c275e5ff75cb165c2e1f",
+    "source": "https://polyhaven.com/a/pine_tree_01",
+    "license": "CC0-1.0",
+    "license_url": "https://polyhaven.com/license"
+  },
+  {
+    "asset": "pine_tree_01",
+    "channel": "twig_alpha",
+    "file": "assets/environment/pine_alpha.png",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Models/png/1k/pine_tree_01/pine_tree_01_twig_alpha_1k.png",
+    "md5": "641911a5a3f543911dad04ebb26e7bca",
+    "source": "https://polyhaven.com/a/pine_tree_01",
+    "license": "CC0-1.0",
+    "license_url": "https://polyhaven.com/license"
+  },
+  {
+    "asset": "kloppenheim_05_puresky",
+    "channel": "hdri",
+    "file": "assets/environment/daylight.hdr",
+    "url": "https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/2k/kloppenheim_05_puresky_2k.hdr",
+    "md5": "adb05080152dc9ee44ca41d6452748e4",
+    "source": "https://polyhaven.com/a/kloppenheim_05_puresky",
+    "license": "CC0-1.0",
+    "license_url": "https://polyhaven.com/license"
+  }
+]
