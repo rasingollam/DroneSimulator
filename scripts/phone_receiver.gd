@@ -2,7 +2,8 @@ extends Node
 ## Versioned, paired LAN controller protocol. Full-state packets supersede old ones.
 
 const PORT := 42424
-const TIMEOUT_MS := 500
+const HOLD_MS := 350
+const TIMEOUT_MS := 2000
 const ACTIONS := ["", "arm", "disarm", "reset", "camera", "mode", "pause", "resume", "disconnect", "drone2", "drone3", "drone4", "drone5"]
 var sim: Node3D
 var socket := PacketPeerUDP.new()
@@ -20,6 +21,8 @@ var last_received_ms := 0
 var received_packets := 0
 var loss_reason := "Waiting for phone"
 var listen_port := PORT
+var recovering := false
+var recovery_auto_resume := false
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -47,8 +50,19 @@ func _process(_delta: float) -> void:
 		var parsed: Variant = JSON.parse_string(bytes.get_string_from_utf8())
 		if parsed is Dictionary:
 			_accept(parsed, ip, port)
-	if connected and Time.get_ticks_msec() - last_received_ms > TIMEOUT_MS:
-		lose_link("PHONE DISCONNECTED / FLIGHT PAUSED")
+	if connected:
+		var silence := Time.get_ticks_msec() - last_received_ms
+		if silence > TIMEOUT_MS:
+			lose_link("PHONE DISCONNECTED / FLIGHT PAUSED")
+		elif silence > HOLD_MS:
+			if not recovering:
+				recovering = true
+				recovery_auto_resume = not sim.get_tree().paused
+				loss_reason = "Brief signal gap; holding flight"
+				sim.flash("PHONE SIGNAL DELAYED / HOLDING FLIGHT",3.0)
+			# Freeze physics instead of flying on stale stick commands.
+			sim.paused = true
+			sim.get_tree().paused = true
 
 func _number(value: Variant, minimum: float, maximum: float) -> bool:
 	return (value is float or value is int) and is_finite(float(value)) and float(value) >= minimum and float(value) <= maximum
@@ -98,6 +112,14 @@ func _accept(packet: Dictionary, ip: String, port: int) -> void:
 	last_sequence = int(packet.seq)
 	last_received_ms = Time.get_ticks_msec()
 	received_packets += 1
+	if recovering:
+		recovering = false
+		if recovery_auto_resume and not sim.show_help and not sim.show_phone and not sim.show_fleet and not sim.show_training:
+			sim.paused = false
+			sim.get_tree().paused = false
+			sim.flash("PHONE SIGNAL RESTORED",2.0)
+		recovery_auto_resume = false
+		loss_reason = "Phone connected"
 	sim.drone.remote_throttle = float(packet.throttle)
 	sim.drone.remote_stick = Vector3(float(packet.pitch), -float(packet.yaw), -float(packet.roll))
 	if just_paired:
@@ -134,6 +156,9 @@ func _action(action: String) -> void:
 			sim.paused = true
 			sim.get_tree().paused = true
 		"resume":
+			# PC training selection must be completed deliberately before resuming.
+			if sim.show_training:
+				return
 			sim.show_fleet = false
 			sim.show_help = false
 			sim.show_phone = false
@@ -145,6 +170,8 @@ func _action(action: String) -> void:
 			sim.select_airframe(int(action.right(1)))
 
 func lose_link(reason: String) -> void:
+	recovering = false
+	recovery_auto_resume = false
 	connected = false
 	peer_ip = ""
 	sim.drone.remote_throttle = 0.0
@@ -155,6 +182,9 @@ func lose_link(reason: String) -> void:
 	sim.get_tree().paused = true
 	loss_reason = reason
 	sim.flash(reason, 8.0)
+
+func cancel_auto_recovery() -> void:
+	recovery_auto_resume = false
 
 func use_keyboard() -> void:
 	if connected or sim.drone.remote_active:

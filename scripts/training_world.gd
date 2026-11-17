@@ -1,10 +1,14 @@
 extends Node3D
+const Catalog = preload("res://scripts/training_catalog.gd")
+const FLIGHT_RADIUS := 1100.0
 
 var gates: Array[Node3D] = []
 var gate_materials: Array[StandardMaterial3D] = []
 var pad_position := Vector3(0, 0.0, 9)
 var rng := RandomNumberGenerator.new()
 var terrain_noise := FastNoiseLite.new()
+var expansion: Node3D
+var exercise_marker: Node3D
 
 func _ready() -> void:
 	rng.seed = 57291
@@ -16,6 +20,10 @@ func _ready() -> void:
 	_airfield()
 	_course()
 	_scenery()
+	expansion = Node3D.new()
+	expansion.set_script(load("res://scripts/world_expansion.gd"))
+	add_child(expansion)
+	expansion.build(self)
 	set_active_gate(0)
 
 func mat(hex: String, roughness: float = 0.9) -> StandardMaterial3D:
@@ -108,10 +116,13 @@ func _terrain() -> void:
 	grass.set_shader_parameter("grass_normal", load("res://assets/environment/grass_normal.jpg"))
 	grass.set_shader_parameter("soil_color", load("res://assets/environment/soil_color.jpg"))
 	grass.set_shader_parameter("rock_color", load("res://assets/environment/rock_color.jpg"))
+	for label in ["forest","gravel"]:
+		for channel in ["color","normal","roughness"]:
+			grass.set_shader_parameter(label+"_"+channel,load("res://assets/environment/%s_%s.jpg" % [label,channel]))
 	var surface := SurfaceTool.new()
 	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var count := 192
-	var step := 5.0
+	var count := 240
+	var step := 10.0
 	for z in range(count + 1):
 		for x in range(count + 1):
 			var px := (x - count / 2.0) * step
@@ -120,8 +131,33 @@ func _terrain() -> void:
 			surface.set_normal(normal)
 			surface.set_uv(Vector2(px, pz) * 0.1)
 			surface.add_vertex(Vector3(px, _terrain_height(px, pz), pz))
+	var refined_vertex := (count+1)*(count+1)
 	for z in range(count):
 		for x in range(count):
+			var cell_x: float = (x-count/2.0)*step
+			var cell_z: float = (z-count/2.0)*step
+			if cell_x >= -40 and cell_x < 120 and cell_z >= 500 and cell_z < 700:
+				# Refine the shoreline to 2.5 m while the distant terrain stays coarse.
+				for sz in range(4):
+					for sx in range(4):
+						for corner in [Vector2(0,0),Vector2(1,0),Vector2(0,1),Vector2(1,0),Vector2(1,1),Vector2(0,1)]:
+							var u: float = (sx+corner.x)/4.0
+							var v: float = (sz+corner.y)/4.0
+							var px := cell_x+u*step
+							var pz := cell_z+v*step
+							var height := _terrain_height(px,pz)
+							# Match adjacent coarse edges exactly, avoiding T-junction cracks.
+							if u == 0 or u == 1:
+								height = lerpf(_terrain_height(px,cell_z),_terrain_height(px,cell_z+step),v)
+							elif v == 0 or v == 1:
+								height = lerpf(_terrain_height(cell_x,pz),_terrain_height(cell_x+step,pz),u)
+							var normal := Vector3(_terrain_height(px-0.5,pz)-_terrain_height(px+0.5,pz),1,_terrain_height(px,pz-0.5)-_terrain_height(px,pz+0.5)).normalized()
+							surface.set_normal(normal)
+							surface.set_uv(Vector2(px,pz)*0.1)
+							surface.add_vertex(Vector3(px,height,pz))
+							surface.add_index(refined_vertex)
+							refined_vertex += 1
+				continue
 			var a := z * (count + 1) + x
 			for index in [a, a + 1, a + count + 1, a + 1, a + count + 2, a + count + 1]:
 				surface.add_index(index)
@@ -130,12 +166,53 @@ func _terrain() -> void:
 	terrain.mesh = surface.commit()
 	terrain.material_override = grass
 	add_child(terrain)
-	terrain.create_trimesh_collision()
+	# The level training area uses one solid surface, with no internal triangle
+	# edges for the small aircraft to rock across. Keep the hills' mesh collision.
+	var faces := PackedVector3Array()
+	var triangles := terrain.mesh.get_faces()
+	for i in range(0, triangles.size(), 3):
+		var central := false
+		for center in Catalog.ZONES:
+			var inside := true
+			for j in range(3):
+				var vertex: Vector3 = triangles[i + j] - center
+				inside = inside and absf(vertex.x) <= 70.0 and absf(vertex.z) <= 70.0
+			central = central or inside
+		if not central:
+			for j in range(3):
+				faces.append(triangles[i + j])
+	var body := StaticBody3D.new()
+	var hills_collision := CollisionShape3D.new()
+	var hills := ConcavePolygonShape3D.new()
+	hills.set_faces(faces)
+	hills_collision.shape = hills
+	body.add_child(hills_collision)
+	for center in Catalog.ZONES:
+		var field_collision := CollisionShape3D.new()
+		var field_shape := BoxShape3D.new()
+		field_shape.size = Vector3(140, 1, 140)
+		field_shape.margin = 0.0005
+		field_collision.shape = field_shape
+		field_collision.position = center + Vector3.DOWN * 0.5
+		body.add_child(field_collision)
+	add_child(body)
 
 func _terrain_height(x: float, z: float) -> float:
-	var distance := Vector2(x, z).length()
-	var edge := smoothstep(100.0, 290.0, distance)
-	return maxf(0.0, (28.0 + terrain_noise.get_noise_2d(x, z) * 56.0) * edge)
+	var edge := 1.0
+	for center in Catalog.ZONES:
+		edge = minf(edge, smoothstep(100.0, 210.0, Vector2(x-center.x,z-center.z).length()))
+	var height := maxf(0.0, (32.0 + terrain_noise.get_noise_2d(x, z) * 64.0) * edge)
+	# Level bridge approaches, then a basin beneath the visible water.
+	var approach := (1.0-smoothstep(18.0,45.0,absf(z-600))) * (1.0-smoothstep(130.0,180.0,absf(x-30)))
+	height *= 1.0-approach
+	var lake := (1.0-smoothstep(50.0,70.0,absf(x-40))) * (1.0-smoothstep(70.0,90.0,absf(z-600)))
+	return lerpf(height,-5.0,lake)
+
+func is_water(position: Vector3) -> bool:
+	return position.y < -0.95 and over_water(position)
+
+func over_water(position: Vector3) -> bool:
+	return absf(position.x-40) < 70 and absf(position.z-600) < 90 and _terrain_height(position.x,position.z) < -1.0
 
 func textured(name: String, scale_uv: float, color: Color = Color.WHITE) -> StandardMaterial3D:
 	var material := mat("ffffff")
@@ -146,10 +223,14 @@ func textured(name: String, scale_uv: float, color: Color = Color.WHITE) -> Stan
 	material.uv1_scale = Vector3.ONE * scale_uv
 	material.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
 	material.metallic_specular = 0.18
-	if name == "asphalt":
+	if ResourceLoader.exists("res://assets/environment/"+name+"_normal.jpg"):
 		material.normal_enabled = true
 		material.normal_texture = load("res://assets/environment/asphalt_normal.jpg")
-		material.normal_scale = 0.45
+		material.normal_scale = 0.65
+	if ResourceLoader.exists("res://assets/environment/"+name+"_roughness.jpg"):
+		material.roughness_texture = load("res://assets/environment/"+name+"_roughness.jpg")
+		material.roughness_texture_channel = BaseMaterial3D.TEXTURE_CHANNEL_RED
+		material.roughness = 1.0
 	return material
 
 func _airfield() -> void:
@@ -157,17 +238,27 @@ func _airfield() -> void:
 	var concrete := textured("soil", 0.45, Color("bbbcb4"))
 	var paint := mat("d8d8bf")
 	var amber := mat("e1ac54")
-	box(Vector3(13, 0.06, 180), Vector3(-23, 0.015, -30), asphalt)
-	box(Vector3(31, 0.04, 22), Vector3(-35, 0.01, 36), concrete)
+	box(Vector3(13, 0.06, 180), Vector3(-23, 0.015, -30), asphalt, true)
+	box(Vector3(31, 0.04, 22), Vector3(-35, 0.01, 36), concrete, true)
 	for z in range(-110, 55, 12):
-		box(Vector3(0.22, 0.015, 4.8), Vector3(-23, 0.055, z), paint)
+		box(Vector3(0.22, 0.0006, 4.8), Vector3(-23, 0.0454, z), paint)
 	for x in [-29.0, -17.0]:
-		box(Vector3(0.12, 0.01, 175), Vector3(x, 0.055, -30), paint)
+		box(Vector3(0.12, 0.0006, 175), Vector3(x, 0.0454, -30), paint)
 	for x in range(5):
-		box(Vector3(0.7, 0.02, 5), Vector3(-27 + x * 2, 0.055, 51), paint)
+		box(Vector3(0.7, 0.0006, 5), Vector3(-27 + x * 2, 0.0454, 51), paint)
 	var runway_number := label_3d("18", Vector3(-23, 0.075, 43), 220, Color("e3e1c9"))
 	runway_number.rotation_degrees.x = -90
-	cylinder(3.8, 0.045, pad_position + Vector3(0, 0.025, 0), asphalt).create_trimesh_collision()
+	# A single convex contact surface avoids triangle seams under tiny airframes.
+	var pad := cylinder(3.8, 0.045, pad_position + Vector3(0, 0.025, 0), asphalt)
+	var pad_body := StaticBody3D.new()
+	var pad_collision := CollisionShape3D.new()
+	var pad_shape := CylinderShape3D.new()
+	pad_shape.radius = 3.8
+	pad_shape.height = 0.045
+	pad_shape.margin = 0.001
+	pad_collision.shape = pad_shape
+	pad.add_child(pad_body)
+	pad_body.add_child(pad_collision)
 	var ring := TorusMesh.new()
 	ring.inner_radius = 3.2
 	ring.outer_radius = 3.3
@@ -177,9 +268,9 @@ func _airfield() -> void:
 	add_child(ring_mesh)
 	ring_mesh.position = pad_position + Vector3(0, 0.049, 0)
 	ring_mesh.scale.y = 0.03
-	box(Vector3(0.16, 0.015, 2.4), Vector3(-0.7, 0.055, 9), paint)
-	box(Vector3(0.16, 0.015, 2.4), Vector3(0.7, 0.055, 9), paint)
-	box(Vector3(1.4, 0.015, 0.16), Vector3(0, 0.055, 9), paint)
+	box(Vector3(0.16, 0.0006, 2.4), Vector3(-0.7, 0.0479, 9), paint)
+	box(Vector3(0.16, 0.0006, 2.4), Vector3(0.7, 0.0479, 9), paint)
+	box(Vector3(1.4, 0.0006, 0.16), Vector3(0, 0.0479, 9), paint)
 	_hangar()
 	_clubhouse()
 	var steel := mat("68716e", 0.6)
@@ -202,29 +293,62 @@ func _airfield() -> void:
 		band.rotation.x = PI / 2.0
 
 func _course() -> void:
-	var positions := [Vector3(0, 3, -18), Vector3(0, 4, -48), Vector3(22, 5, -74), Vector3(48, 4, -60), Vector3(54, 3, -26), Vector3(34, 3, 0), Vector3(10, 2.8, 12)]
+	set_course(Catalog.ACTIVITIES[0])
+
+func set_course(activity: Dictionary) -> void:
+	for gate in gates:
+		remove_child(gate)
+		gate.queue_free()
+	gates.clear()
+	gate_materials.clear()
+	if is_instance_valid(exercise_marker):
+		exercise_marker.queue_free()
+	if activity.kind != "race":
+		exercise_marker = Node3D.new()
+		add_child(exercise_marker)
+		exercise_marker.position = activity.target
+		var marker_mat := mat("67c7b5")
+		if activity.kind == "hover":
+			for x in [-2,2]:
+				for z in [-2,2]:
+					box(Vector3(0.035,1,0.035),Vector3(x,0,z),marker_mat,false,exercise_marker)
+			for y in [-0.5,0.5]:
+				for side in [-2,2]:
+					box(Vector3(4,0.025,0.025),Vector3(0,y,side),marker_mat,false,exercise_marker)
+					box(Vector3(0.025,0.025,4),Vector3(side,y,0),marker_mat,false,exercise_marker)
+		label_3d("HOLD HERE" if activity.kind == "hover" else "LAND HERE",Vector3(0,2.5,0),38,Color("b7e9d4"),exercise_marker)
+		return
+	var positions: Array = activity.route
+	var half: Vector2 = activity.size
 	var base := mat("273637")
 	for i in range(positions.size()):
 		var gate := Node3D.new()
 		add_child(gate)
 		gate.position = positions[i]
-		var previous: Vector3 = positions[i - 1] if i > 0 else pad_position
+		var previous: Vector3 = positions[i - 1] if i > 0 else activity.spawn
 		var incoming: Vector3 = positions[i] - previous
-		incoming.y = 0.0
+		if activity.id != "quarry":
+			incoming.y = 0.0
 		gate.look_at(gate.position + incoming)
+		gate.set_meta("half_size", half - Vector2.ONE * 0.11)
 		var light_mat := mat("e9a34c")
 		light_mat.emission_enabled = true
 		light_mat.emission = Color("e9a34c")
 		light_mat.emission_energy_multiplier = 0.025
 		gate_materials.append(light_mat)
-		for x in [-3.2, 3.2]:
-			box(Vector3(0.22, 4.4, 0.28), Vector3(x, 0, 0), base, true, gate)
-			box(Vector3(0.24, 4.2, 0.12), Vector3(x, 0, 0.17), light_mat, false, gate)
-			box(Vector3(1.0, 0.18, 1.3), Vector3(x, -gate.position.y + 0.09, 0), base, true, gate)
-		for y in [-2.2, 2.2]:
-			box(Vector3(6.6, 0.22, 0.28), Vector3(0, y, 0), base, true, gate)
-			box(Vector3(6.4, 0.24, 0.12), Vector3(0, y, 0.17), light_mat, false, gate)
-		label_3d("%02d" % (i + 1), Vector3(0, 2.85, 0), 84, Color("f1e8cf"), gate)
+		for x in [-half.x, half.x]:
+			box(Vector3(0.22, half.y*2, 0.28), Vector3(x, 0, 0), base, true, gate)
+			box(Vector3(0.24, half.y*2-0.2, 0.12), Vector3(x, 0, 0.17), light_mat, false, gate)
+		for y in [-half.y, half.y]:
+			box(Vector3(half.x*2+0.2, 0.22, 0.28), Vector3(0, y, 0), base, true, gate)
+			box(Vector3(half.x*2, 0.24, 0.12), Vector3(0, y, 0.17), light_mat, false, gate)
+		# Thin support cables anchor elevated gates without filling their aperture.
+		var ground := _terrain_height(gate.position.x,gate.position.z)
+		var height: float = gate.position.y-half.y-ground
+		if height > 0.1 and activity.id != "quarry":
+			for x in [-half.x,half.x]:
+				box(Vector3(0.07,height,0.07),Vector3(x,-half.y-height/2,0),base,false,gate)
+		label_3d("%02d" % (i + 1), Vector3(0, half.y+0.65, 0), 70, Color("f1e8cf"), gate)
 		gates.append(gate)
 
 func set_active_gate(index: int) -> void:

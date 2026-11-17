@@ -23,6 +23,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--godot", default=os.environ.get("GODOT_BIN"))
     parser.add_argument("--java-home", default=os.environ.get("JAVA_HOME"))
+    parser.add_argument("--json-jar", default=os.environ.get("JSON_JAR"))
     args = parser.parse_args()
     godot = args.godot or shutil.which("godot") or shutil.which("godot4")
     if not godot:
@@ -37,8 +38,13 @@ def main():
     if not javac or not java:
         parser.error("A JDK is required; supply --java-home or put javac/java on PATH.")
     run([godot, "--headless", "--path", ".", "--editor", "--import", "--quit"])
-    for script in ("physics_test.gd", "profiles_test.gd", "world_test.gd", "integration_test.gd", "phone_test.gd"):
+    for script in ("physics_test.gd", "profiles_test.gd", "world_test.gd", "ground_test.gd", "expansion_test.gd", "integration_test.gd", "phone_test.gd"):
         run([godot, "--headless", "--path", ".", "--script", "tests/" + script])
+    json_jar = Path(args.json_jar) if args.json_jar else ROOT / "tools/json-20240303.jar"
+    if json_jar.is_file():
+        run([sys.executable,"tests/run_sender_checks.py","--godot",godot,"--javac",javac,"--java",java,"--json-jar",json_jar])
+    else:
+        print("SKIP: Optional exact Java sender tests require --json-jar (org.json 20240303). CI supplies it.",flush=True)
     package = Path("android-controller/src/com/vectorflight/controller")
     tests = Path("android-controller/tests")
     with tempfile.TemporaryDirectory(prefix="vector-java-checks-") as output:

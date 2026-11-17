@@ -18,6 +18,8 @@ window/stretch/aspect="expand"
 [physics]
 common/physics_ticks_per_second=240
 3d/default_gravity=9.80665
+3d/solver/contact_max_allowed_penetration=0.0005
+3d/solver/solver_iterations=32
 
 [rendering]
 anti_aliasing/quality/msaa_3d=1

@@ -33,7 +33,7 @@ Wind/gusts alter relative air velocity. A downward ray measures nearby ground wh
 
 The crash cutoff uses contact plus speed above **3.8 m/s** within the preceding **33 ms**. The short history handles CCD stopping a body before the engine reports contact. This is a training reset threshold, not structural stress analysis. Reset clears motor state, velocities and controller history, and returns disarmed to the pad.
 
-Height telemetry is relative to the flat field datum, not radar altitude over terrain or obstacles. The environmental grass/foliage animation is decorative; air forces use the simulator's explicit wind vector.
+Height telemetry estimates clearance above the collision surface below using a downward ray updated at 10 Hz, including raised pads and structures. It is a geometric estimate, not a simulated radar sensor. The environmental grass/foliage animation is decorative; air forces use the simulator's explicit wind vector. Contact with the lake surface is treated as a failed flight, with motor cutoff; buoyancy and underwater dynamics are not modeled.
 
 ## Limits
 

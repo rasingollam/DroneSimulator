@@ -49,7 +49,7 @@ public final class ControllerLinkTest {
             link.action("arm");
             until(() -> link.armed, "Re-arm works after reset");
             link.stop();
-            Thread.sleep(900);
+            Thread.sleep(2300);
             JSONObject after = new JSONObject(new String(Files.readAllBytes(statusFile), StandardCharsets.UTF_8));
             if (after.getBoolean("connected") || after.getBoolean("armed") || !after.getBoolean("paused"))
                 throw new AssertionError("Link loss did not pause/disarm the actual host");

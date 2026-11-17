@@ -36,6 +36,7 @@ var visual: Node3D
 var frame_collision: CollisionShape3D
 var battery_collision: CollisionShape3D
 var ground_effect := 1.0
+var ground_reference := 0.0475
 var contact_speed_history := PackedFloat32Array([0, 0, 0, 0, 0, 0, 0, 0])
 var contact_history_index := 0
 
@@ -48,12 +49,14 @@ func _ready() -> void:
 	max_contacts_reported = 12
 	physics_material_override = PhysicsMaterial.new()
 	physics_material_override.friction = 0.65
-	physics_material_override.bounce = 0.04
+	physics_material_override.bounce = 0.0
 	frame_collision = CollisionShape3D.new()
 	frame_collision.shape = BoxShape3D.new()
+	frame_collision.shape.margin = 0.0005
 	add_child(frame_collision)
 	battery_collision = CollisionShape3D.new()
 	battery_collision.shape = BoxShape3D.new()
+	battery_collision.shape.margin = 0.0005
 	add_child(battery_collision)
 	configure(inches)
 	global_transform = spawn_transform
@@ -90,7 +93,7 @@ func hover_throttle() -> float:
 	return sqrt(mass * 9.80665 / (4.0 * MAX_THRUST))
 
 func height_above_pad() -> float:
-	return maxf(0.0, global_position.y - (0.0475 + float(profile.body_height) * 0.5))
+	return maxf(0.0, global_position.y - (ground_reference + float(profile.body_height) * 0.5))
 
 func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
 	var dt := state.step
@@ -159,7 +162,8 @@ func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
 	for i in range(4):
 		var p := MOTOR_POSITIONS[i]
 		var target: float = collective / 4.0 - p.z * torque.x / (4.0 * ARM * ARM) + p.x * torque.z / (4.0 * ARM * ARM) + MOTOR_SPINS[i] * torque.y / (4.0 * YAW_COEFFICIENT)
-		var target_speed := sqrt(clampf(target / MAX_THRUST, 0.0, 1.0)) if armed else 0.0
+		# Motor-stop at zero throttle prevents the rate controller fighting the floor.
+		var target_speed := sqrt(clampf(target / MAX_THRUST, 0.0, 1.0)) if armed and throttle > 0.001 else 0.0
 		motor_speeds[i] = lerpf(motor_speeds[i], target_speed, 1.0 - exp(-dt / MOTOR_TIME_CONSTANT))
 		var aerodynamic_thrust := MAX_THRUST * motor_speeds[i] * motor_speeds[i]
 		motor_thrusts[i] = aerodynamic_thrust * ground_effect

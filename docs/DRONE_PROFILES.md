@@ -2,7 +2,7 @@
 
 The selector offers **representative open-prop builds**, not certified replicas or a universal model of every drone with that propeller size. A ducted cinewhoop, ultralight toothpick and heavy camera platform can handle very differently even with identical prop diameters. Battery, payload, motor and prop pitch matter too.
 
-Press **F4** while disarmed to inspect the models. Use **2 / 3 / 4 / 5** to select, then Enter to return to the field. Direct number-key selection also works while disarmed. The Android 1.2 app adds an **AIRFRAME** button. Switching resets position, velocity, motors and the circuit, and never arms automatically. Best lap times are kept separately per airframe for the current session.
+Press **F4** while disarmed to inspect the models. Use **2 / 3 / 4 / 5** to select, then Enter to return to the field. Direct number-key selection also works while disarmed. The Android 1.2 app adds an **AIRFRAME** button. Switching resets position, velocity, motors and the circuit, and never arms automatically. Best times persist separately by activity, airframe, flight mode and wind condition.
 
 | Profile | Prop | All-up mass | Motor diagonal | Pack | Motor class | Thrust limit per motor | Spool time | Approx. hover |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -27,5 +27,7 @@ The simulator changes mass, a positive physically admissible inertia tensor, mot
 The light micro has a larger drag-to-mass ratio and lower momentum. The 5-inch setup has greater thrust-to-weight and kinetic energy. These effects arise from forces and inertia, not canned handling animations. The model includes bounded near-ground rotor lift and effective rotor-plane drag approximations, but not full blade-element aerodynamics, propwash or vortex-ring state.
 
 Hover is calculated from `sqrt(m*g/(4*Tmax))` in free air. Close to the ground, the bounded ground-effect approximation can reduce the required power slightly. The H shortcut and phone HOVER label use the selected profile; neither provides altitude hold.
+
+Zero throttle uses motor-stop behavior: the controller does not command differential thrust until throttle is raised. Contact tolerances are set to 0.5 mm for these small frames, with 32 solver iterations and solid colliders for the pad and central 140 m square training area to avoid triangle-seam jitter. The runway and apron have matching collision surfaces; painted markings are thin enough to leave the small frames visible. The airborne force and inertia model is unchanged by these contact settings.
 
 Automated checks run each profile through force balance, hover stability, pitch/yaw/roll response, self-leveling, Acro release, wind response, and disarmed switching. These establish internal consistency, not real-aircraft validation. Compare feel here as an initial guide, then use a real radio and measured configuration before treating it as training for a specific aircraft.

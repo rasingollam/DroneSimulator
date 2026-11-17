@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.os.Build;
 import android.os.Bundle;
+import android.net.wifi.WifiManager;
 import android.content.SharedPreferences;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -26,6 +27,7 @@ public final class MainActivity extends Activity {
     private final ControllerLink link = new ControllerLink(controls);
     private PadView pad;
     private SharedPreferences prefs;
+    private WifiManager.WifiLock wifiLock;
 
     @Override public void onCreate(Bundle saved) {
         super.onCreate(saved);
@@ -49,7 +51,24 @@ public final class MainActivity extends Activity {
             View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
     }
     @Override public void onWindowFocusChanged(boolean focused) { super.onWindowFocusChanged(focused); if (focused) immersive(); }
-    @Override protected void onPause() { link.stop(); super.onPause(); }
+    @Override protected void onResume() {
+        super.onResume();
+        try {
+            WifiManager wifi = (WifiManager)getApplicationContext().getSystemService(WIFI_SERVICE);
+            if (wifi != null) {
+                int mode = Build.VERSION.SDK_INT >= 29 ? WifiManager.WIFI_MODE_FULL_LOW_LATENCY : WifiManager.WIFI_MODE_FULL_HIGH_PERF;
+                wifiLock = wifi.createWifiLock(mode, "VectorController:foreground-radio");
+                wifiLock.setReferenceCounted(false);
+                wifiLock.acquire();
+            }
+        } catch (SecurityException unavailable) { wifiLock = null; }
+    }
+    @Override protected void onPause() {
+        link.stop();
+        if (wifiLock != null && wifiLock.isHeld()) wifiLock.release();
+        wifiLock = null;
+        super.onPause();
+    }
     @Override protected void onDestroy() { link.stop(); super.onDestroy(); }
     @Override public void onBackPressed() {
         new AlertDialog.Builder(this).setTitle("Disconnect controller?")
@@ -231,7 +250,7 @@ public final class MainActivity extends Activity {
                 case 6:
                     controls.center(); link.action("pause");
                     new AlertDialog.Builder(MainActivity.this).setTitle("Your first touch-controlled flight")
-                        .setMessage("1. Press F2 on the PC. CONNECT using its address and pairing code.\n\n2. Tap START / RESUME, then ARM.\n\n3. Choose an AIRFRAME while disarmed. Drag your left thumb upward slowly past the HOVER value shown for that airframe. Release to keep that setting. Drag downward to descend. Left/right movement controls yaw.\n\n4. Drag your right thumb up/down for pitch, left/right for roll. Release to center.\n\nHAPTICS: A tap confirms stick pickup, a light tick marks neutral, and a stronger bump marks full travel. Throttle has feedback at zero/full, not at its midpoint. Turn feedback on/off with HAPTICS. Enable touch vibration in Android settings if needed. The phone vibrates as a whole; it cannot identify each thumb separately.\n\nANGLE self-levels; ACRO retains tilt. Start in ANGLE. Watch the PC screen while using both thumbs.\n\nRESET returns to the pad, disarmed. Closing or leaving the app pauses and disarms the PC after half a second. Use a real radio later for physical stick practice.")
+                        .setMessage("1. Press F2 on the PC. CONNECT using its address and pairing code.\n\n2. Tap START / RESUME, then ARM.\n\n3. Choose an AIRFRAME while disarmed. Drag your left thumb upward slowly past the HOVER value shown for that airframe. Release to keep that setting. Drag downward to descend. Left/right movement controls yaw.\n\n4. Drag your right thumb up/down for pitch, left/right for roll. Release to center.\n\nHAPTICS: A tap confirms stick pickup, a light tick marks neutral, and a stronger bump marks full travel. Throttle has feedback at zero/full, not at its midpoint. Turn feedback on/off with HAPTICS. Enable touch vibration in Android settings if needed. The phone vibrates as a whole; it cannot identify each thumb separately.\n\nANGLE self-levels; ACRO retains tilt. Start in ANGLE. Watch the PC screen while using both thumbs.\n\nRESET returns to the pad, disarmed. Brief signal gaps hold flight and recover automatically. A loss lasting two seconds disarms and requires Start / Resume and Arm again. Closing or leaving the app stops control packets. Use a real radio later for physical stick practice.")
                         .setPositiveButton("Got it", null).show();
                     break;
                 case 7:

@@ -5,6 +5,7 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.SocketTimeoutException;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayDeque;
 import java.util.UUID;
@@ -13,6 +14,7 @@ import org.json.JSONObject;
 /** 60 Hz full-state UDP, sequence rejection, acknowledged commands and link timeout. */
 public final class ControllerLink {
     public static final int PORT = 42424;
+    static final long LINK_LOST_MS = 2000;
     private final ControlState controls;
     private final int serverPort;
     private final ArrayDeque<String> commands = new ArrayDeque<>();
@@ -74,12 +76,20 @@ public final class ControllerLink {
             DatagramPacket incoming = new DatagramPacket(buffer, buffer.length);
             while (run == generation) {
                 long start = SystemClock.elapsedRealtime();
-                if (lastAck == 0 || start - lastAck > 600) {
+                if (lastAck == 0 || start - lastAck > LINK_LOST_MS) {
+                    boolean wasConnected = connected;
                     connected = armed = false; paused = true;
                     controls.reset();
                     synchronized (this) { commands.clear(); }
-                    pending = "";
+                    // Also stop the PC when only its telemetry return path is lost.
+                    // A neutral disconnect is retried, then acknowledged during safe re-pairing.
+                    if (wasConnected) { pending = "disconnect"; actionId++; }
+                    else if (lastAck == 0) pending = "";
                     status = "Waiting · check PC address, code, Wi-Fi and firewall";
+                } else if (start - lastAck > 500) {
+                    // The PC holds physics during a brief gap. Keep stick state
+                    // so a short render/Wi-Fi stall cannot silently cut throttle.
+                    status = "Signal delayed · PC holding flight · retrying";
                 }
                 synchronized (this) {
                     // Reset/disarm supersede an unacknowledged earlier command.
@@ -96,14 +106,29 @@ public final class ControllerLink {
                 packet.put("pitch", values[2]); packet.put("roll", values[3]);
                 packet.put("action", pending); packet.put("action_id", actionId);
                 byte[] bytes = packet.toString().getBytes(StandardCharsets.UTF_8);
-                udp.send(new DatagramPacket(bytes, bytes.length));
+                try {
+                    udp.send(new DatagramPacket(bytes, bytes.length));
+                } catch (IOException transientFailure) {
+                    if (run != generation) return;
+                    status = "Wi-Fi interrupted · retrying automatically";
+                    Thread.sleep(100);
+                    continue;
+                }
                 for (int n = 0; n < 32; n++) {
                     try {
                         incoming.setLength(buffer.length);
                         udp.receive(incoming);
                     } catch (SocketTimeoutException done) { break; }
-                    JSONObject reply = new JSONObject(new String(buffer, 0, incoming.getLength(), StandardCharsets.UTF_8));
+                    catch (IOException transientFailure) { break; }
+                    JSONObject reply;
+                    try {
+                        reply = new JSONObject(new String(buffer, 0, incoming.getLength(), StandardCharsets.UTF_8));
+                    } catch (org.json.JSONException malformedReply) {
+                        continue; // One damaged datagram must not kill the sender thread.
+                    }
                     if (reply.optInt("v") != 1 || !session.equals(reply.optString("session"))) continue;
+                    long receivedAt = SystemClock.elapsedRealtime();
+                    if (receivedAt - reply.optLong("sent", receivedAt) > LINK_LOST_MS) continue;
                     long ackSeq = reply.optLong("seq", -1);
                     if (ackSeq <= lastAckSeq || ackSeq > seq) continue;
                     lastAckSeq = ackSeq;
@@ -128,7 +153,7 @@ public final class ControllerLink {
         } finally {
             if (udp != null) udp.close();
             if (run == generation) {
-                connected = armed = false; controls.reset();
+                connected = armed = false; paused = true; controls.reset();
             }
         }
     }

@@ -40,7 +40,8 @@ func build(inches: int, p: Dictionary) -> void:
 	prop_diameter = inches * 0.0254
 	var s: float = p.wheelbase / 0.245
 	var arm: float = p.wheelbase / (2.0 * sqrt(2.0))
-	var carbon := material(Color("202629"), 0.38, 0.62)
+	var carbon := material(Color("343c42"), 0.15, 0.70)
+	var carbon_edge := material(Color("727a80"), 0.1, 0.82)
 	var rubber := material(Color("121518"), 0, 0.95)
 	var alloy := material(Color("69737b"), 0.82, 0.28)
 	var accent := material(p.color, 0.30, 0.40)
@@ -49,9 +50,14 @@ func build(inches: int, p: Dictionary) -> void:
 	# Thin carbon plates, replaceable arms and standoffs, all at physical scale.
 	box(Vector3(0.042, 0.004, 0.115) * s, Vector3(0, -0.004, 0) * s, carbon)
 	box(Vector3(0.035, 0.003, 0.086) * s, Vector3(0, 0.024, 0) * s, carbon)
-	for angle in [-PI / 4.0, PI / 4.0]:
-		var beam := box(Vector3(0.012, 0.005, p.wheelbase + 0.012 * s), Vector3.ZERO, carbon)
-		beam.rotation.y = angle
+	for i in range(4):
+		var motor := Vector3(-arm if i % 2 == 0 else arm, 0, -arm if i < 2 else arm)
+		var beam := box(Vector3(0.016 * s, 0.005 * s, motor.length() + 0.014 * s), motor * 0.5, carbon)
+		beam.name = "FrameArm%d" % i
+		beam.rotation.y = atan2(motor.x, motor.z)
+		# Exposed laminate along the edges makes the real frame readable at distance.
+		for side in [-1.0, 1.0]:
+			box(Vector3(0.001, 0.002, motor.length() / s + 0.014) * s, Vector3(side * 0.008, 0, 0) * s, carbon_edge, beam)
 	for x in [-0.014, 0.014]:
 		for z in [-0.032, 0.032]:
 			cylinder(0.0024 * s, 0.025 * s, Vector3(x, 0.01, z) * s, accent)

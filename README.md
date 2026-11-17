@@ -6,7 +6,9 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Godot 4.5.1](https://img.shields.io/badge/Godot-4.5.1-478cbf)](https://godotengine.org/)
 
-Practice throttle, yaw, pitch and roll in one outdoor training field. Fly with the keyboard or use two simultaneous touch sticks on your Android phone while watching the PC screen.
+Practice throttle, yaw, pitch and roll across six districts in one connected landscape. Fly with the keyboard or use two simultaneous touch sticks on your Android phone while watching the PC screen.
+
+**[Get the Android remote](https://github.com/rasingollam/DroneSimulator/releases/latest/download/VectorController.apk)** · [Training guide](docs/TRAINING.md) · [Physics and realism](docs/PHYSICS.md) · [Asset credits](THIRD_PARTY_NOTICES.md)
 
 ![Full-screen flight view with translucent live stick indicators](docs/images/training-field.png)
 
@@ -19,6 +21,9 @@ Practice throttle, yaw, pitch and roll in one outdoor training field. Fly with t
 - Motor spool response, quadratic drag, gravity, wind/gusts, contacts and impact-triggered motor cutoff.
 - **Angle** self-leveling and **Acro** body-rate modes, with FPV and chase cameras.
 - Textured field, HDR sky/reflections, wind-animated grass and pine foliage, smooth highlands, a flyable curved-roof hangar, service buildings and training obstacles. Environment photographs are CC0 assets from Poly Haven; see [credits](THIRD_PARTY_NOTICES.md).
+- **2.4 × 2.4 km terrain** with a 1.1 km flight radius, six districts, nine selectable activities, hover/landing lessons, technical circuits and a cross-country route.
+- Scanned rock meshes, detailed factory facade modules, crates and drums; concrete, metal, timber, gravel and forest-floor PBR materials. Assets are bundled for offline use.
+- Saved personal bests, lesson completions, medal targets, airborne time, distance and impact count. Records are separated by activity, airframe, flight mode and wind.
 - Full-screen view with minimal, instrument and hidden HUD modes; translucent bottom-center stick indicators.
 - Lightweight **Android controller** with persistent throttle, two-finger input, telemetry and a round-trip delay display.
 - Optional haptic cues for stick pickup, neutral crossings and travel limits.
@@ -41,7 +46,7 @@ godot --path .
 
 On Windows, `Launch.cmd` uses `godot` on PATH, or an optionally supplied portable engine in `tools/`. **Engine binaries, Android SDKs and signing keys are not included in the repository.**
 
-The simulator opens full screen, disarmed, with a clear view. **F1** opens the guide; **F2** opens pairing; **F3** cycles HUD modes; **F4** opens airframe comparison; **F11** toggles full screen. The upgraded visuals use Forward+ (Vulkan); `Launch-low-graphics.cmd` or `godot --path . --rendering-method gl_compatibility` provides a reduced-effects OpenGL fallback.
+The simulator opens full screen, disarmed, with a clear view. **F1** opens the guide; **F2** opens pairing; **F3** cycles HUD modes; **F4** opens airframe comparison; **F5** opens training and the world overview; **F11** toggles full screen. The upgraded visuals use Forward+ (Vulkan); `Launch-low-graphics.cmd` or `godot --path . --rendering-method gl_compatibility` provides a reduced-effects OpenGL fallback.
 
 ## Choose your drone
 
@@ -64,6 +69,21 @@ These are representative builds, not brand replicas or a claim that every quad o
 
 The APK controls the PC simulator; it does not run the 3D world on the phone. Android 6.0+ and a multitouch screen are required.
 
+**Controller 1.3 fixes frequent re-arming after brief signal gaps.** Update the PC simulator and install the new APK over the existing app; the signing key and package are unchanged.
+
+| Pair with your PC | Connected touch radio |
+| --- | --- |
+| ![Android controller pairing dialog with PC address and code fields](docs/images/mobile-pairing.png) | ![Connected Android remote with dual sticks, haptics and airframe controls](docs/images/mobile-remote.png) |
+
+<details>
+<summary>Live mobile-controller screenshot</summary>
+
+![Android remote controlling an actual isolated Godot flight with live throttle and telemetry](docs/images/mobile-live.png)
+
+</details>
+
+These are actual Android 6.0 emulator captures of controller 1.3, paired with an isolated Godot simulator through a test bridge. They demonstrate the app interface and telemetry; physical-phone multitouch and haptic feel still need device validation. [Screenshot capture notes](docs/SCREENSHOTS.md).
+
 1. Install `VectorController.apk` on your phone. Android may ask you to allow installation from your browser or file manager.
 2. Connect PC and phone to the **same private local network**. Avoid guest Wi-Fi/client isolation.
 3. Start the simulator and press **F2**.
@@ -79,7 +99,9 @@ Movement is relative to where each thumb engages, so touching or re-gripping doe
 
 **Haptics:** a short tap confirms pickup, a light tick marks neutral, and a limit bump marks full axis travel or zero/full throttle. Use **HAPTICS ON/OFF** to toggle. Enable Android touch vibration if needed. Strength depends on the phone; vibration affects the whole device, not individual thumbs.
 
-If the app closes, backgrounds, or stops sending valid packets for **500 ms**, the PC pauses and disarms. Reconnecting requires neutral sticks and zero throttle, then deliberate resume and arming. **K** returns to keyboard control; **F2** enables phone pairing again.
+After **350 ms** without valid packets, the PC freezes physics instead of flying on stale controls. A fresh packet from the same paired session within **two seconds** restores an interrupted flight without clearing throttle or re-arming. An intentional pause stays paused, and Escape during a signal hold cancels automatic recovery.
+
+After **two seconds** of sustained loss, the PC disarms and clears controls. Reconnecting then requires neutral sticks and zero throttle, followed by deliberate resume and arming. The app retries transient socket errors and ignores malformed replies; sustained telemetry loss also requests a safe PC disconnect. It requests foreground low-latency Wi-Fi where supported and releases that lock on leaving the app. **K** returns to keyboard control; **F2** enables pairing again.
 
 Allow Godot on **Private networks** if Windows Firewall asks. Control uses **UDP 42424**. No cloud service or router port forwarding is needed. Pairing traffic is **not encrypted**; use a trusted private LAN and read [SECURITY.md](SECURITY.md).
 
@@ -104,6 +126,7 @@ For optional Wi-Fi APK transfer, install Python 3 and run `Install-on-phone.cmd`
 | **F1 / F2** | Guide / phone pairing |
 | **F3** | Minimal display → full instruments → hidden HUD |
 | **F4 / 2–5** | Airframe comparison / select size while disarmed |
+| **F5** | Training menu; arrows or mouse to select, Enter or launch button to start |
 | **F11** | Full screen / windowed |
 | **K** | Disconnect phone and use keyboard |
 | **M** | Mute / unmute motors |
@@ -112,9 +135,44 @@ Hold W gently past hover power, then release to keep that setting. Tap S to desc
 
 **Angle** commands up to 30° bank/pitch and self-levels on release. **Acro** commands rotation rates; releasing the stick stops rotation while retaining tilt. Neither mode holds altitude or position. Banking redirects thrust, so maintaining height requires additional throttle.
 
-## Training circuit
+## World and training
 
-The teal gate is next. Pass through its opening in the forward direction, then continue in numerical order. The timer starts at gate 1; a lap ends when you return through gate 1 after gates 2–7. Hard impacts cut motor power; reset to retry. Height telemetry references the flat field datum, not the top of every obstacle.
+Press **F5 while disarmed** to choose a lesson or circuit. All districts remain accessible in free flight. Launching an activity moves you to its launch pad, disarmed; **R** returns there. Select activities on the PC, then fly with controller 1.3 on your phone.
+
+![Training selector and connected-world overview](docs/images/training-menu.png)
+
+| District | Activities and practice |
+| --- | --- |
+| Airfield | Original seven-gate circuit; cross-country explorer |
+| Rural meadow | Ten-second hover box, precision landing, figure-eight turns |
+| Pine woodland | Lower-altitude slalom between solid trunks |
+| Freight yard | Container gaps, open warehouse and elevated gantry |
+| Quarry | Tower climb, tilted descent gate and recovery |
+| Lakeside | Bridge underpass over water, dock and shoreline |
+
+Race through the teal opening in the correct direction and numerical order. The timer starts at gate 01 and finishes on returning through 01 after every other gate. Gate clearance accounts for the aircraft's physical span. Changing flight mode or wind restarts the scoring attempt. Hard impacts and water contact stop the motors; reset to retry.
+
+The F3 instrument display scales its map to the selected activity. Height telemetry uses a downward collision ray at 10 Hz to estimate height above the surface below, including raised pads and structures. See the [training guide](docs/TRAINING.md) for tolerances, medal targets, saved records and a suggested learning path.
+
+### World screenshot gallery
+
+Captured directly in Godot from the playable world. Select an image to inspect its full resolution.
+
+| Rural meadow and figure-eight circuit | Pine woodland slalom |
+| --- | --- |
+| ![Meadow with open barn, crop rows, landing pads and figure-eight gates](docs/images/meadow.png) | ![Pine slalom weaving between physical tree trunks](docs/images/pine-slalom.png) |
+| **Freight yard technical circuit** | **Lakeside bridge run** |
+| ![Freight yard with warehouse passage, stacked containers, gantry and factory buildings](docs/images/freight-yard.png) | ![Lakeside bridge with a flyable underpass, shoreline rocks and dock](docs/images/lakeside-bridge.png) |
+| **Hover lesson and instruments** | **Original FPV camera view** |
+| ![Hover box with live telemetry, target marker and lesson hold timer](docs/images/hover-lesson.png) | ![FPV view from the original camera position](docs/images/fpv.png) |
+
+### Materials and prop detail
+
+![Factory district using detailed brick facade modules and PBR surfaces](docs/images/scenery-factory.png)
+
+![Quarry using scanned rock meshes and photographed surface materials](docs/images/scenery-quarry.png)
+
+![Freight props with photographed wood, hardware and surface wear](docs/images/freight-props.png)
 
 ## Physics and realism
 
@@ -132,7 +190,9 @@ Install **Python 3**, **Godot 4.5.1** and a **JDK** for the Java tests. No Pytho
 python tests/run_checks.py --godot /path/to/godot
 ```
 
-The runner checks project import, gravity/hover/attitude behavior, keyboard integration, the real UDP receiver, control math, haptic detection, APK checksum and restricted APK transfer. GitHub Actions runs the same checks. Physical Android input and vibration require manual validation.
+The runner checks project import, gravity/hover/attitude behavior, ground stability, district/circuit collision, lesson scoring and persistence, keyboard integration, the real UDP receiver, control math, haptic detection, asset/APK checksums and restricted APK transfer. GitHub Actions runs the same checks. Physical Android input and vibration require manual validation.
+
+The exact Java sender also has corrupted-packet, socket-error, short-gap and sustained-loss tests, plus an end-to-end test against an isolated Godot process. Supply `--json-jar /path/to/json-20240303.jar` to include them locally; CI downloads this test-only runtime with a pinned SHA-256 checksum. The APK uses Android's built-in JSON implementation and has no extra runtime dependency.
 
 The Android app is plain Java, with no external app libraries or Gradle dependencies. Build on Windows using **OpenJDK 17**, **SDK platform 35** and **build-tools 35.0.1**:
 
@@ -150,11 +210,13 @@ scripts/                 Aircraft, world, cameras, HUD and phone receiver
 android-controller/      Android source, build script and transfer helper
 dist/                    APK, SHA-256 checksum and phone setup guide
 tests/                   Physics, input, network and artifact checks
-docs/                    Physics/development notes and screenshot
+docs/                    Training, physics and development guides; screenshots
+assets/                  Bundled CC0 models, PBR textures, HDR sky and shaders
+dev/                     Optional checksum-verified scenery download helper
 ```
 
 ## Contributing and license
 
 Issues and focused pull requests are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md). For vulnerabilities, see [SECURITY.md](SECURITY.md). See [CHANGELOG.md](CHANGELOG.md) for changes.
 
-Code and generated geometry are licensed under the **[MIT License](LICENSE)**. The included photographs/HDRI are CC0; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and `assets/sources.json`. Godot, Android tools and Java are separate dependencies with their own licenses and are not redistributed here.
+Code and generated geometry are licensed under the **[MIT License](LICENSE)**. The included source models, photographs and HDRI are CC0; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and `assets/sources.json`. Godot, Android tools and Java are separate dependencies with their own licenses and are not redistributed here.

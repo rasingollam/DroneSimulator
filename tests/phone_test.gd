@@ -66,12 +66,31 @@ func run() -> void:
 	for i in range(8):
 		await process_frame
 	check(sim.phone.session == "test-phone-session", "A second phone cannot hijack an active session")
+	await send({"throttle":0.58,"pitch":0,"yaw":0,"roll":0,"action":""})
+	await create_timer(0.55, true).timeout
+	check(sim.phone.connected and sim.phone.recovering and paused and sim.drone.armed, "Brief packet gap holds physics without disconnecting or disarming")
+	var held_position: Vector3 = sim.drone.position
+	await create_timer(0.10, true).timeout
+	check(sim.drone.position.distance_to(held_position)<0.001, "Aircraft cannot fly on stale controls during recovery")
+	await send()
+	check(sim.phone.connected and not sim.phone.recovering and not paused and sim.drone.armed and is_equal_approx(sim.drone.remote_throttle,0.58), "Fresh same-session packets recover flight and preserve throttle")
+	sim.paused = true
+	paused = true
+	await create_timer(0.55,true).timeout
+	await send()
+	check(paused and sim.drone.armed, "Brief recovery cannot override an intentional pause")
+	sim.phone._action("resume")
+	await create_timer(0.55,true).timeout
+	sim.phone.cancel_auto_recovery()
+	await send()
+	check(paused and sim.drone.armed, "Pilot can cancel automatic recovery during a hold")
+	sim.phone._action("resume")
 	await send({"throttle": 0.58, "pitch": 0, "yaw": 0, "roll": 0, "action": "camera", "action_id": 4})
 	check(sim.fpv and reply.action_ack == 4, "Camera command is applied and acknowledged")
 	await send()
 	check(sim.fpv, "Retransmitted action is applied exactly once")
-	await create_timer(0.65, true).timeout
-	check(not sim.phone.connected and paused and not sim.drone.armed, "500 ms signal timeout pauses physics and disarms")
+	await create_timer(2.15, true).timeout
+	check(not sim.phone.connected and paused and not sim.drone.armed, "Sustained two-second signal timeout pauses physics and disarms")
 	check(sim.drone.remote_throttle == 0.0 and sim.drone.remote_stick == Vector3.ZERO, "Signal timeout clears all controls")
 	await send({"throttle": 0.58})
 	check(not sim.phone.connected, "Reconnect with stale high throttle is rejected")

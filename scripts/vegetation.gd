@@ -60,6 +60,34 @@ func build(field: Node3D) -> void:
 			trunk.add_child(collider)
 			add_child(trunk)
 			trunk.position = p + Vector3.UP * 5.0 * size
+		# A separate pine district: a wide winding corridor between solid trunks.
+		for row in range(11):
+			for column in range(9):
+				if (row + column) % 3 != variant:
+					continue
+				var p := Vector3(-410 + column*15+rng.randf_range(-4,4),0,-405 + row*13+rng.randf_range(-4,4))
+				# Keep the slalom's centre line and launch pad free of random trunks.
+				var clear := p.distance_to(Vector3(-350,0,-280)) < 9
+				var route: Array = preload("res://scripts/training_catalog.gd").ACTIVITIES[4].route
+				for j in range(route.size()):
+					var a: Vector3 = route[j]; a.y = 0
+					var b: Vector3 = route[(j+1)%route.size()]; b.y = 0
+					var nearest := Geometry3D.get_closest_point_to_segment(p,a,b)
+					clear = clear or nearest.distance_to(p) < 5.0
+				if clear:
+					continue
+				p.y = field._terrain_height(p.x,p.z)
+				var size := rng.randf_range(0.9,1.7)
+				transforms.append(Transform3D(Basis(Vector3.UP,rng.randf()*TAU).scaled(Vector3.ONE*size),p))
+				var body := StaticBody3D.new()
+				var shape := CollisionShape3D.new()
+				var cylinder := CylinderShape3D.new()
+				cylinder.radius = 0.23*size
+				cylinder.height = 10*size
+				shape.shape = cylinder
+				body.add_child(shape)
+				add_child(body)
+				body.position = p+Vector3.UP*5*size
 		_instances(wood_mesh, bark, transforms)
 		_instances(leaves_mesh, needles, transforms)
 	_grass(field)
@@ -74,6 +102,8 @@ func _instances(mesh: Mesh, material: Material, transforms: Array[Transform3D]) 
 		batch.set_instance_transform(i, transforms[i])
 	instance.multimesh = batch
 	instance.material_override = material
+	instance.visibility_range_end = 580
+	instance.visibility_range_end_margin = 40
 	add_child(instance)
 
 func _segment(surface: SurfaceTool, start: Vector3, end: Vector3, r1: float, r2: float) -> void:

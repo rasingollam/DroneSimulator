@@ -50,6 +50,9 @@ func _draw() -> void:
 	var scale_factor := minf(viewport.x / 1440.0, viewport.y / 900.0)
 	var offset := (viewport - Vector2(1440, 900) * scale_factor) / 2.0
 	draw_set_transform(offset, 0.0, Vector2.ONE * scale_factor)
+	if sim.show_training:
+		_training_menu()
+		return
 	if sim.show_fleet:
 		_fleet()
 		return
@@ -63,14 +66,14 @@ func _draw() -> void:
 		_minimal(d)
 	if sim.hud_mode != 2:
 		_stick_indicators(d)
-	var show_message: bool = sim.hud_mode == 1 or not d.armed or sim.message.begins_with("PHONE") or sim.message.begins_with("LAP ")
+	var show_message: bool = sim.hud_mode == 1 or not d.armed or sim.message.begins_with("PHONE") or sim.message.begins_with("LAP ") or sim.message.begins_with("LESSON") or sim.message.begins_with("DISARM")
 	if sim.hud_mode != 2 and show_message and sim.message_time > 0 and not sim.show_help and not sim.show_phone and not d.crashed:
 		var width := maxf(440, mono.get_string_size(sim.message, HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x + 48)
 		panel(Rect2((1440 - width) / 2, 681, width, 38))
 		text(sim.message, Vector2((1440 - width) / 2 + 24, 705), 14, TEAL, mono)
 	if d.crashed and not sim.show_help and not sim.show_phone:
 		panel(Rect2(494, 371, 452, 135))
-		text("HARD IMPACT", Vector2(607, 419), 28, AMBER, bold)
+		text(sim.crash_reason, Vector2(570, 419), 28, AMBER, bold)
 		var reset_hint := "Tap RESET on your phone to return to the pad." if d.remote_active else "Press R to return to the pad."
 		text(reset_hint, Vector2(535, 459), 16, INK)
 	if sim.paused and not sim.show_help and not sim.show_phone and not sim.show_fleet:
@@ -88,7 +91,7 @@ func _draw() -> void:
 	elif sim.hud_mode == 1 and sim.phone != null and sim.phone.connected and not sim.show_help:
 		pill("PHONE CONNECTED / F2 SETTINGS", Rect2(555, 172, 330, 32), TEAL)
 	elif sim.hud_mode == 1 and not sim.show_help:
-		text("F2  PHONE CONTROLLER", Vector2(629, 703), 13, TEAL, mono)
+		text("F2  PHONE CONTROLLER", Vector2(629, 185), 13, TEAL, mono)
 
 func _screen_bounds() -> Rect2:
 	var viewport := get_viewport_rect().size
@@ -110,7 +113,9 @@ func _minimal(d: RigidBody3D) -> void:
 	var source := "PHONE" if sim.phone != null and sim.phone.connected else ("LINK LOST" if d.remote_active else "KEYBOARD")
 	_quiet_text('%s  ·  %d" %s  ·  %s  ·  %s' % [state, d.inches, d.profile.name, "ACRO" if d.acro else "ANGLE", source], left, TEAL if d.armed else INK)
 	if not d.armed:
-		_quiet_text("F1 help   F2 phone   F3 display   F4 airframes", left + Vector2(0, 23), Color(INK, 0.7))
+		_quiet_text("F1 help   F2 phone   F3 display   F4 airframes   F5 training", left + Vector2(0, 23), Color(INK, 0.7))
+	_quiet_text(sim.training.activity.name.to_upper()+"  /  F5 TRAINING", Vector2(bounds.position.x+28,bounds.position.y+30),Color(INK,0.75))
+	_quiet_text(sim.training.progress_text(), Vector2(bounds.position.x+28,bounds.position.y+52),Color(TEAL,0.85))
 	var speed := Vector2(d.linear_velocity.x, d.linear_velocity.z).length() * 3.6
 	_quiet_text("%.1f m   %.0f km/h" % [d.height_above_pad(), speed], Vector2(bounds.end.x - 196, bounds.end.y - 27), Color(INK, 0.8))
 
@@ -152,8 +157,8 @@ func _header(d: RigidBody3D) -> void:
 	text("VECTOR", Vector2(49, 62), 30, INK, bold)
 	text("F L I G H T   L A B", Vector2(51, 83), 10, MUTED, bold)
 	line(Vector2(232, 41), Vector2(232, 82))
-	text("FIELD 01", Vector2(256, 54), 12, TEAL, mono)
-	text("Meadow training ground", Vector2(256, 79), 17)
+	text("TRAINING / F5", Vector2(256, 54), 12, TEAL, mono)
+	text(sim.training.activity.name, Vector2(256, 79), 15)
 	pill("ACRO / RATE" if d.acro else "ANGLE / SELF-LEVEL", Rect2(551, 45, 171, 33), AMBER if d.acro else TEAL)
 	pill("FPV  %02d°" % int(sim.fpv_tilt) if sim.fpv else "CHASE VIEW", Rect2(737, 45, 130, 33), INK)
 	var state := "CRASHED" if d.crashed else ("ARMED" if d.armed else "DISARMED")
@@ -172,7 +177,7 @@ func _telemetry(d: RigidBody3D) -> void:
 	text("%04.1f" % speed, Vector2(40, 230), 46, INK, mono)
 	text("km/h", Vector2(198, 226), 13, MUTED)
 	line(Vector2(43, 246), Vector2(252, 246))
-	text("HEIGHT / FIELD", Vector2(43, 272), 11, MUTED)
+	text("HEIGHT / SURFACE", Vector2(43, 272), 11, MUTED)
 	text("%05.2f" % d.height_above_pad(), Vector2(43, 309), 31, INK, mono)
 	text("m", Vector2(217, 307), 13, MUTED)
 	text("VERTICAL", Vector2(43, 341), 11, MUTED)
@@ -184,7 +189,7 @@ func _telemetry(d: RigidBody3D) -> void:
 	var hover := sqrt(d.mass * 9.80665 / (4.0 * d.MAX_THRUST))
 	line(Vector2(43 + 209 * hover, 386), Vector2(43 + 209 * hover, 400), AMBER)
 	text("THRUST  %04.1f N" % d.total_thrust, Vector2(43, 430), 12, MUTED, mono)
-	text("Reference: landing pad elevation", Vector2(29, 477), 11, Color(0.9, 0.96, 0.91, 0.7))
+	text("Height above the surface below", Vector2(29, 477), 11, Color(0.9, 0.96, 0.91, 0.7))
 	panel(Rect2(24, 497, 247, 93))
 	text("AIR CONDITIONS", Vector2(43, 525), 11, MUTED, bold)
 	text("CALM" if sim.wind_level == 0 else "WIND  %.1f m/s" % d.wind.length(), Vector2(43, 558), 21, INK, mono)
@@ -201,8 +206,9 @@ func _map(d: RigidBody3D) -> void:
 	var points := PackedVector2Array()
 	for gate in sim.field.gates:
 		points.append(_map_point(gate.position))
-	points.append(points[0])
-	draw_polyline(points, Color(0.5, 0.67, 0.63, 0.4), 1.5, true)
+	if points.size() > 1:
+		points.append(points[0])
+		draw_polyline(points, Color(0.5, 0.67, 0.63, 0.4), 1.5, true)
 	for i in range(sim.field.gates.size()):
 		var at: Vector2 = points[i]
 		draw_circle(at, 5 if i == sim.next_gate else 3, TEAL if i == sim.next_gate else MUTED)
@@ -214,19 +220,88 @@ func _map(d: RigidBody3D) -> void:
 	draw_colored_polygon(PackedVector2Array([pos + forward * 8, pos - forward * 5 + side * 4, pos - forward * 5 - side * 4]), INK)
 	text("N", Vector2(1378, 181), 10, MUTED, mono)
 	line(Vector2(1167, 367), Vector2(1396, 367))
-	var distance: float = d.position.distance_to(sim.field.gates[sim.next_gate].position)
-	text("NEXT  %02d / 07" % (sim.next_gate + 1), Vector2(1167, 396), 14, INK, mono)
+	var target: Vector3 = sim.field.gates[sim.next_gate].position if not sim.field.gates.is_empty() else sim.training.activity.target
+	var distance: float = d.position.distance_to(target)
+	if sim.field.gates.is_empty():
+		draw_circle(_map_point(target),6,TEAL)
+	text("NEXT %02d / %02d" % [sim.next_gate+1,sim.field.gates.size()] if not sim.field.gates.is_empty() else "PRACTICE TARGET", Vector2(1167, 396), 12, INK, mono)
 	text("%03d m" % int(distance), Vector2(1342, 396), 14, TEAL, mono)
 	panel(Rect2(1148, 435, 268, 131))
-	text("LAP %02d" % (sim.completed_laps + 1), Vector2(1167, 465), 11, MUTED, bold)
-	text(_time(sim.lap_time), Vector2(1167, 504), 29, INK, mono)
+	var lesson: bool = sim.training.activity.kind != "race"
+	text("LESSON COMPLETE" if sim.training.complete else ("CONSECUTIVE HOLD" if lesson else "LAP %02d" % (sim.completed_laps + 1)), Vector2(1167, 465), 11, MUTED, bold)
+	text("%.1f / %s s" % [sim.training.hold,"10" if sim.training.activity.kind=="hover" else "1"] if lesson else _time(sim.lap_time), Vector2(1167, 504), 24, INK, mono)
 	text("BEST  " + (_time(sim.best_lap) if sim.best_lap > 0 else "--:--.--"), Vector2(1167, 542), 13, MUTED, mono)
 
 func _map_point(pos: Vector3) -> Vector2:
-	return Vector2(1210 + pos.x * 2.05, 322 + pos.z * 1.7)
+	var activity: Dictionary = sim.training.activity
+	var center: Vector3 = activity.spawn
+	var minimum := Vector2(center.x,center.z)
+	var maximum := minimum
+	for gate in sim.field.gates:
+		minimum = minimum.min(Vector2(gate.position.x,gate.position.z))
+		maximum = maximum.max(Vector2(gate.position.x,gate.position.z))
+	if activity.kind != "race":
+		minimum = minimum.min(Vector2(activity.target.x,activity.target.z))
+		maximum = maximum.max(Vector2(activity.target.x,activity.target.z))
+	var extent := maximum-minimum+Vector2.ONE*30
+	var factor := minf(208.0/extent.x,166.0/extent.y)
+	return Vector2(1282,260)+(Vector2(pos.x,pos.z)-(minimum+maximum)*0.5)*factor
 
 func _time(seconds: float) -> String:
 	return "%02d:%05.2f" % [int(seconds) / 60, fmod(seconds, 60)]
+
+func _training_menu() -> void:
+	_veil(Color(0.018,0.04,0.05,0.96))
+	text("V E C T O R   /   PILOT TRAINING",Vector2(95,85),13,TEAL,bold)
+	text("Choose your next challenge.",Vector2(93,136),36,INK,bold)
+	text("UP / DOWN to choose  ·  ENTER to fly  ·  ESC to return  ·  Mouse selection available",Vector2(95,166),14,MUTED)
+	var catalog = preload("res://scripts/training_catalog.gd")
+	for i in range(catalog.ACTIVITIES.size()):
+		var item: Dictionary = catalog.ACTIVITIES[i]
+		var rect := Rect2(95,189+i*54,535,49)
+		var selected: bool = sim.training_cursor == i
+		draw_rect(rect,Color(TEAL,0.12) if selected else Color(INK,0.025))
+		if selected:
+			draw_rect(rect,Color(TEAL,0.55),false)
+		text(item.name,rect.position+Vector2(15,23),18,INK,bold)
+		text(item.level,rect.position+Vector2(15,41),10,TEAL if selected else MUTED,mono)
+		var best: float = sim.training.best_for(i)
+		var badge := catalog.medal(item,best) if item.kind == "race" else ("CLEARED" if sim.training.completions(i)>0 else "PRACTICE")
+		text(badge,rect.position+Vector2(426,23),11,AMBER,mono)
+		text(_time(best) if best>0 else "--:--.--",rect.position+Vector2(426,41),11,MUTED,mono)
+	panel(Rect2(670,189,630,486))
+	text("CONNECTED WORLD / 2.4 km TERRAIN",Vector2(695,218),12,TEAL,bold)
+	var centers: Array = catalog.ZONES
+	var names := ["AIRFIELD","MEADOW","PINE WOOD","FREIGHT YARD","QUARRY","LAKESIDE"]
+	var chosen: Dictionary = catalog.ACTIVITIES[sim.training_cursor]
+	for i in range(centers.size()):
+		var p: Vector2 = Vector2(990,386)+Vector2(centers[i].x,centers[i].z)*0.36
+		line(Vector2(990,386),p,Color(TEAL,0.14))
+		draw_circle(p,26,Color(TEAL,0.07))
+		draw_circle(p,5,TEAL if chosen.zone == i else MUTED)
+		text(names[i],p+Vector2(10,-10),11,TEAL if chosen.zone == i else INK,mono)
+	var route: Array = chosen.route
+	if not route.is_empty():
+		var points := PackedVector2Array()
+		for p in route:
+			points.append(Vector2(990,386)+Vector2(p.x,p.z)*0.36)
+		points.append(points[0])
+		draw_polyline(points,Color(AMBER,0.85),2,true)
+	text("N ↑    All districts are reachable in free flight",Vector2(695,652),12,MUTED,mono)
+	var words: PackedStringArray = chosen.tip.split(" ")
+	var sentence := ""
+	var y := 701.0
+	for word in words:
+		if regular.get_string_size(sentence+word,HORIZONTAL_ALIGNMENT_LEFT,-1,14).x > 600:
+			text(sentence,Vector2(690,y),14,INK)
+			y += 18
+			sentence = ""
+		sentence += word+" "
+	text(sentence,Vector2(690,y),14,INK)
+	pill("ENTER / CLICK TO LAUNCH",Rect2(690,750,600,40),TEAL)
+	text('RECORDS: %d" / %s / WIND %d' % [sim.drone.inches,"ACRO" if sim.drone.acro else "ANGLE",sim.wind_level],Vector2(95,713),13,TEAL,mono)
+	text("Times are saved separately for each setup.",Vector2(95,738),12,MUTED)
+	text("FLIGHT %.1f min   DISTANCE %.2f km   IMPACTS %d" % [sim.training.flight_seconds/60,sim.training.distance_metres/1000,sim.training.impacts],Vector2(95,788),12,MUTED,mono)
 
 func _flight_overlay(d: RigidBody3D, offset: Vector2, scale_factor: float) -> void:
 	var center := Vector2(720, 426)
@@ -245,14 +320,13 @@ func _flight_overlay(d: RigidBody3D, offset: Vector2, scale_factor: float) -> vo
 			var a := Vector2(-55 if i == 0 else -24, y).rotated(roll)
 			var b := Vector2(55 if i == 0 else 24, y).rotated(roll)
 			line(center + a, center + b, Color(0.8, 1, 0.95, 0.35), 1.0)
-	var gate: Node3D = sim.field.gates[sim.next_gate]
-	var target := gate.position + Vector3.UP * 3.1
+	var target: Vector3 = sim.field.gates[sim.next_gate].position + Vector3.UP * 3.1 if not sim.field.gates.is_empty() else sim.training.activity.target
 	if not sim.camera.is_position_behind(target):
 		var screen: Vector2 = (sim.camera.unproject_position(target) - offset) / scale_factor
 		if screen.x > 295 and screen.x < 1130 and screen.y > 190 and screen.y < 695:
 			var diamond := PackedVector2Array([screen + Vector2(0, -8), screen + Vector2(8, 0), screen + Vector2(0, 8), screen + Vector2(-8, 0), screen + Vector2(0, -8)])
 			draw_polyline(diamond, TEAL, 1.5, true)
-			text("%02d" % (sim.next_gate + 1), screen + Vector2(14, 5), 12, TEAL, mono)
+			text("%02d" % (sim.next_gate + 1) if not sim.field.gates.is_empty() else "TARGET", screen + Vector2(14, 5), 12, TEAL, mono)
 	if not d.armed and not d.crashed:
 		text("SPACE TO ARM", Vector2(639, 651), 19, INK, bold)
 		text("W / S adjusts throttle · release to keep setting", Vector2(550, 678), 13, INK)
@@ -296,7 +370,7 @@ func _help() -> void:
 	draw_rect(Rect2(310, 124, 820, 4), TEAL)
 	text("V E C T O R   /   F L I G H T   L A B", Vector2(356, 173), 12, TEAL, bold)
 	text("Learn to fly. Feel the physics.", Vector2(353, 227), 36, INK, bold)
-	text("One open field. Four motors. Your first flight starts here.", Vector2(356, 261), 17, MUTED)
+	text("Six districts. Nine activities. Build skills one flight at a time.", Vector2(356, 261), 17, MUTED)
 	line(Vector2(356, 289), Vector2(1084, 289))
 	text("01   LEFT STICK", Vector2(356, 323), 12, TEAL, bold)
 	text("W / S", Vector2(356, 361), 24, INK, mono)
@@ -317,7 +391,7 @@ func _help() -> void:
 	text("3", Vector2(356, 558), 17, TEAL, mono)
 	text("Use small arrow-key inputs. Aim for the teal gate. R resets after a crash.", Vector2(386, 558), 16)
 	text("ANGLE self-levels. TAB switches to ACRO; tilt stays when sticks are released.", Vector2(356, 601), 14, MUTED)
-	text("F2 pairs phone. F3 cycles displays. F4 chooses airframes. F11 full screen.", Vector2(356, 625), 14, MUTED)
+	text("F2 phone. F3 displays. F4 airframes. F5 training & world map. F11 fullscreen.", Vector2(356, 625), 14, MUTED)
 	text("Keyboard inputs are smoothed; real radio sticks provide much finer control.", Vector2(356, 659), 13, AMBER)
 	text("Physics-based training model. Handling needs validation against your real drone.", Vector2(356, 682), 13, MUTED)
 	draw_rect(Rect2(356, 710, 728, 42), TEAL)

@@ -4,10 +4,16 @@ var sim: Node3D
 var elapsed := 0.0
 var total := 0.0
 var ready_to_test := false
+var status_path := "res://tools/controller_host.json"
+var done_path := "res://tools/controller_test.done"
 
 func _initialize() -> void:
-	if FileAccess.file_exists("res://tools/controller_test.done"):
-		DirAccess.remove_absolute(ProjectSettings.globalize_path("res://tools/controller_test.done"))
+	var args := OS.get_cmdline_user_args()
+	if args.size() >= 2:
+		status_path = args[0]
+		done_path = args[1]
+	if FileAccess.file_exists(done_path):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(done_path))
 	call_deferred("start")
 
 func start() -> void:
@@ -27,7 +33,7 @@ func _process(delta: float) -> bool:
 	if elapsed > 0.05:
 		_write_status()
 		elapsed = 0
-	if FileAccess.file_exists("res://tools/controller_test.done") or total > 45:
+	if FileAccess.file_exists(done_path) or total > 45:
 		ready_to_test = false
 		sim.audio.stop()
 		sim.playback = null
@@ -40,6 +46,6 @@ func finish() -> void:
 	quit()
 
 func _write_status() -> void:
-	var file := FileAccess.open("res://tools/controller_host.json", FileAccess.WRITE)
+	var file := FileAccess.open(status_path, FileAccess.WRITE)
 	file.store_string(JSON.stringify({"pin": sim.phone.pin, "connected": sim.phone.connected,
 		"paused": paused, "armed": sim.drone.armed, "height": sim.drone.position.y, "port": sim.phone.listen_port}))

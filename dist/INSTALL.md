@@ -1,6 +1,6 @@
 # Install Vector Controller on your Android phone
 
-**Version 1.2 adds airframe selection and profile-specific hover guidance**, retaining haptic feedback. Install this APK over the existing app; the package and signing key are unchanged. It requires the updated PC simulator for airframe switching; old phone builds still control the PC, with size selection available on the PC keyboard.
+**Version 1.3 fixes frequent re-arming after brief signal gaps**, retaining airframe selection, profile-specific hover guidance and haptics. Update the PC simulator and install this APK over the existing app; the package and signing key are unchanged. Older builds still connect, but retain their aggressive telemetry timeout.
 
 1. Copy **VectorController.apk** from this folder to your phone with a USB cable, then open it on the phone. Alternatively, double-click **Install-on-phone.cmd** in the project folder and open the displayed local address in your phone browser to download the APK over Wi-Fi. This helper shares only the APK and its installation page. Close its window when finished.
 2. Android may ask you to allow installation from the browser or file manager you used. Enable that permission for this installation. The APK is locally signed for direct installation; it is not a Play Store release. You can revoke the installer permission afterward.
@@ -18,7 +18,8 @@ Use the phone's **AIRFRAME** button to choose 2-, 3-, 4- or 5-inch representativ
 - Sticks use relative drag from where your thumb first touches, so touching or re-gripping never jumps the throttle. Each stick tracks its own finger. You can lift and re-grip to continue adjusting throttle.
 - **Angle** self-levels. **Acro** preserves tilt after releasing the right stick. Neither mode holds position or altitude.
 - **Pause** freezes flight. **Reset** returns to the pad, disarmed. **Disarm** cuts motor power. **FPV / Chase** changes the PC camera.
-- Closing, backgrounding, or disconnecting the app makes the PC pause and disarm after **500 ms without valid control packets**. A neutral reconnect requires Start/Resume and Arm again. Throttle returns to zero after disarming or resetting.
+- After **350 ms without valid packets**, the PC holds physics. A fresh same-session packet within two seconds restores an interrupted flight without re-arming. Deliberate pauses stay paused; Escape during a hold cancels automatic recovery.
+- **Two seconds of sustained loss** disarms and clears throttle. A neutral reconnect then requires Start/Resume and Arm again. Closing or backgrounding the app stops sending packets and releases its foreground Wi-Fi lock.
 - If you want keyboard controls again, press **K** on the PC. This disables phone takeover. Press F2 to enable phone pairing again.
 
 The on-phone delay is measured **round-trip network time**, not total input-to-display latency. Poor Wi-Fi can still cause delay; use a nearby router with a strong signal. This controller operates the simulator only.
