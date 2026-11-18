@@ -27,7 +27,7 @@ var message := "WELCOME TO THE FIELD"
 var message_time := 0.0
 var crash_speed := 0.0
 var crash_reason := "HARD IMPACT"
-var fpv_tilt := 15.0
+var fpv_tilt := 30.0
 var audio: AudioStreamPlayer
 var playback: AudioStreamGeneratorPlayback
 var audio_phase := 0.0
@@ -42,6 +42,11 @@ var show_training := false
 var training_cursor := 0
 var training_was_paused := false
 var ground_clock := 0.0
+var show_explorer := false
+var explorer_cursor := 0
+var explorer_was_paused := false
+var home_marker := false
+var exploration: Node3D
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -62,7 +67,7 @@ func _ready() -> void:
 	camera = Camera3D.new()
 	camera.fov = 85
 	camera.near = 0.035
-	camera.far = 2600
+	camera.far = 7000
 	add_child(camera)
 	camera.position = drone.position + Vector3(0, 2.2, 5)
 	camera.look_at(drone.position + Vector3(0, 0.6, -3))
@@ -78,12 +83,27 @@ func _ready() -> void:
 	phone.set_script(PhoneScript)
 	phone.sim = self
 	add_child(phone)
+	exploration=Node3D.new()
+	exploration.set_script(load("res://scripts/exploration.gd"))
+	exploration.sim=self
+	add_child(exploration)
 	get_tree().paused = show_help
 	Input.mouse_mode = Input.MOUSE_MODE_HIDDEN
 
 func _unhandled_key_input(event: InputEvent) -> void:
 	if not event is InputEventKey or not event.pressed or event.echo:
 		return
+	if show_explorer:
+		match event.physical_keycode:
+			KEY_UP:
+				explorer_cursor = wrapi(explorer_cursor-1,0,field.topography.launches.size())
+			KEY_DOWN:
+				explorer_cursor = wrapi(explorer_cursor+1,0,field.topography.launches.size())
+			KEY_ENTER:
+				start_exploring()
+			KEY_ESCAPE,KEY_F6:
+				toggle_explorer()
+		if event.physical_keycode not in [KEY_F7,KEY_F8,KEY_F9,KEY_F10,KEY_F11,KEY_G,KEY_Y,KEY_P,KEY_O]: return
 	if show_training:
 		match event.physical_keycode:
 			KEY_UP:
@@ -98,6 +118,28 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	if show_fleet and event.physical_keycode not in [KEY_F4, KEY_ENTER, KEY_ESCAPE, KEY_2, KEY_3, KEY_4, KEY_5, KEY_F11]:
 		return
 	match event.physical_keycode:
+		KEY_F10:
+			exploration.cycle_season()
+		KEY_G:
+			exploration.toggle_guide()
+		KEY_Y:
+			exploration.toggle_recording()
+		KEY_P:
+			exploration.toggle_playback()
+		KEY_O:
+			exploration.toggle_hints()
+		KEY_F6:
+			toggle_explorer()
+		KEY_F7:
+			field.apply_atmosphere(field.atmosphere+1)
+			flash(["CLEAR MORNING","GOLDEN HOUR","VALLEY MIST"][field.atmosphere])
+		KEY_F8:
+			field.high_quality = not field.high_quality
+			field.apply_atmosphere(field.atmosphere)
+			flash("HIGH GRAPHICS" if field.high_quality else "PERFORMANCE GRAPHICS")
+		KEY_F9:
+			home_marker = not home_marker
+			flash("HOME MARKER ON" if home_marker else "HOME MARKER OFF")
 		KEY_F5:
 			toggle_training()
 		KEY_F4:
@@ -169,6 +211,9 @@ func _unhandled_key_input(event: InputEvent) -> void:
 
 func reset_flight() -> void:
 	drone.reset_drone()
+	if is_instance_valid(exploration):
+		exploration.replay_clock=0
+		exploration.replay_cursor=0
 	next_gate = 0
 	course_started = false
 	lap_time = 0.0
@@ -184,7 +229,7 @@ func toggle_training() -> void:
 		return
 	show_training = not show_training
 	if show_training:
-		training_cursor = training.selected
+		training_cursor = maxi(0,training.selected)
 		training_was_paused = paused
 		show_help = false
 		show_phone = false
@@ -203,15 +248,60 @@ func start_training() -> void:
 		Input.mouse_mode = Input.MOUSE_MODE_HIDDEN
 
 func _unhandled_input(event: InputEvent) -> void:
-	if not show_training or not event is InputEventMouseButton or not event.pressed or event.button_index != MOUSE_BUTTON_LEFT:
+	if not (show_training or show_explorer) or not event is InputEventMouseButton or not event.pressed or event.button_index != MOUSE_BUTTON_LEFT:
 		return
 	var viewport := get_viewport().get_visible_rect().size
 	var factor := minf(viewport.x/1440.0,viewport.y/900.0)
 	var point: Vector2 = (event.position-(viewport-Vector2(1440,900)*factor)/2.0)/factor
+	if show_explorer:
+		if Rect2(95,189,535,486).has_point(point):
+			explorer_cursor = clampi((explorer_cursor/9)*9+int((point.y-189)/54),0,field.topography.launches.size()-1)
+		elif Rect2(690,750,600,40).has_point(point):
+			start_exploring()
+		return
 	if Rect2(95,189,535,486).has_point(point):
 		training_cursor = clampi(int((point.y-189)/54),0,Catalog.ACTIVITIES.size()-1)
 	elif Rect2(690,750,600,40).has_point(point):
 		start_training()
+
+func toggle_explorer() -> void:
+	if drone.armed:
+		flash("DISARM BEFORE CHANGING LAUNCH SITES")
+		return
+	show_explorer = not show_explorer
+	if show_explorer:
+		explorer_was_paused = paused
+		show_training = false
+		show_fleet = false
+		show_help = false
+		show_phone = false
+		paused = true
+	else:
+		paused = explorer_was_paused
+	get_tree().paused = paused
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if show_explorer else Input.MOUSE_MODE_HIDDEN
+
+func enter_free_roam(index: int) -> bool:
+	if drone.armed: return false
+	var spawn: Vector3 = field.mountains.launch_position(index)
+	var site: Dictionary = field.topography.launches[index]
+	training.selected = -1
+	training.activity = {"id":"free_roam","kind":"free","name":site.name,"spawn":spawn,"target":spawn,"tip":"Explore at your own pace","route":[],"size":Vector2(3,2)}
+	field.set_course(training.activity)
+	drone.spawn_transform = Transform3D(Basis.IDENTITY,spawn)
+	drone.ground_reference = spawn.y-0.16
+	reset_flight()
+	completed_laps = 0
+	best_lap = 0
+	flash(site.name.to_upper()+" / F7 LIGHT / F9 HOME",6)
+	return true
+
+func start_exploring() -> void:
+	if enter_free_roam(explorer_cursor):
+		show_explorer = false
+		paused = explorer_was_paused
+		get_tree().paused = paused
+		Input.mouse_mode = Input.MOUSE_MODE_HIDDEN
 
 func toggle_fleet() -> void:
 	if drone.armed:
@@ -261,7 +351,7 @@ func restart_scoring() -> void:
 	training.reset_attempt()
 
 func _physics_process(delta: float) -> void:
-	if get_tree().paused:
+	if get_tree().paused or drone.respawn_requested:
 		return
 	session_time += delta
 	var strength: float = [0.0, 2.0, 5.0][wind_level]
@@ -284,7 +374,7 @@ func _physics_process(delta: float) -> void:
 		if not ground.is_empty():
 			drone.ground_reference = ground.position.y
 			if field.over_water(drone.position):
-				drone.ground_reference = maxf(drone.ground_reference,-0.975)
+				drone.ground_reference = maxf(drone.ground_reference,field.water_height_at(drone.position.x,drone.position.z))
 	training.update(delta)
 	previous_position = drone.global_position
 	if field.is_water(drone.position) and not drone.crashed:

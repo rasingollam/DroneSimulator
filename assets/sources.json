@@ -618,5 +618,105 @@
     "source": "https://polyhaven.com/a/forest_ground_04",
     "license": "CC0-1.0",
     "license_url": "https://polyhaven.com/license"
+  },
+  {
+    "asset": "rock_face",
+    "channel": "Diffuse",
+    "file": "assets/environment/cliff_color.jpg",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/rock_face/rock_face_diff_2k.jpg",
+    "md5": "e3964bcefad9a2a758263b077b47ed64",
+    "source": "https://polyhaven.com/a/rock_face",
+    "license": "CC0-1.0",
+    "license_url": "https://polyhaven.com/license"
+  },
+  {
+    "asset": "rock_face",
+    "channel": "nor_gl",
+    "file": "assets/environment/cliff_normal.jpg",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/rock_face/rock_face_nor_gl_2k.jpg",
+    "md5": "75d644e0c6a9d2534cafe783602d6c41",
+    "source": "https://polyhaven.com/a/rock_face",
+    "license": "CC0-1.0",
+    "license_url": "https://polyhaven.com/license"
+  },
+  {
+    "asset": "rock_face",
+    "channel": "Rough",
+    "file": "assets/environment/cliff_roughness.jpg",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/rock_face/rock_face_rough_2k.jpg",
+    "md5": "72bdf484361d84d661a99af4f0b93bea",
+    "source": "https://polyhaven.com/a/rock_face",
+    "license": "CC0-1.0",
+    "license_url": "https://polyhaven.com/license"
+  },
+  {
+    "asset": "rocky_terrain",
+    "channel": "Diffuse",
+    "file": "assets/environment/scree_color.jpg",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/rocky_terrain/rocky_terrain_diff_2k.jpg",
+    "md5": "4abb5d65394b6af07752099bd34ddd02",
+    "source": "https://polyhaven.com/a/rocky_terrain",
+    "license": "CC0-1.0",
+    "license_url": "https://polyhaven.com/license"
+  },
+  {
+    "asset": "rocky_terrain",
+    "channel": "nor_gl",
+    "file": "assets/environment/scree_normal.jpg",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/rocky_terrain/rocky_terrain_nor_gl_2k.jpg",
+    "md5": "05034535c6a4d24bf1886bd6331b9d39",
+    "source": "https://polyhaven.com/a/rocky_terrain",
+    "license": "CC0-1.0",
+    "license_url": "https://polyhaven.com/license"
+  },
+  {
+    "asset": "rocky_terrain",
+    "channel": "Rough",
+    "file": "assets/environment/scree_roughness.jpg",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/rocky_terrain/rocky_terrain_rough_2k.jpg",
+    "md5": "e773e576ac20318199c85ca84abfe2fe",
+    "source": "https://polyhaven.com/a/rocky_terrain",
+    "license": "CC0-1.0",
+    "license_url": "https://polyhaven.com/license"
+  },
+  {
+    "asset": "snow_02",
+    "channel": "Diffuse",
+    "file": "assets/environment/snow_color.jpg",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/snow_02/snow_02_diff_2k.jpg",
+    "md5": "5541e5601951b071691238ddc70632c0",
+    "source": "https://polyhaven.com/a/snow_02",
+    "license": "CC0-1.0",
+    "license_url": "https://polyhaven.com/license"
+  },
+  {
+    "asset": "snow_02",
+    "channel": "nor_gl",
+    "file": "assets/environment/snow_normal.jpg",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/snow_02/snow_02_nor_gl_2k.jpg",
+    "md5": "ef128fbdf1b31932c792eb6472c84574",
+    "source": "https://polyhaven.com/a/snow_02",
+    "license": "CC0-1.0",
+    "license_url": "https://polyhaven.com/license"
+  },
+  {
+    "asset": "snow_02",
+    "channel": "Rough",
+    "file": "assets/environment/snow_roughness.jpg",
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/snow_02/snow_02_rough_2k.jpg",
+    "md5": "8b9787b4c7b1d7390a4b4a1ae67728b1",
+    "source": "https://polyhaven.com/a/snow_02",
+    "license": "CC0-1.0",
+    "license_url": "https://polyhaven.com/license"
+  },
+  {
+    "asset": "kiara_8_sunset",
+    "channel": "hdri",
+    "file": "assets/environment/sunset.hdr",
+    "url": "https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/2k/kiara_8_sunset_2k.hdr",
+    "md5": "4f379bd9ffa3112851422c5e7e582e07",
+    "source": "https://polyhaven.com/a/kiara_8_sunset",
+    "license": "CC0-1.0",
+    "license_url": "https://polyhaven.com/license"
   }
 ]

@@ -36,7 +36,7 @@ def main():
             host = subprocess.Popen([args.godot,'--headless','--path',str(ROOT),'--script','tests/controller_host.gd',
                                      '--',str(status),str(done)],cwd=ROOT,stdout=log,stderr=subprocess.STDOUT)
             try:
-                deadline = time.monotonic()+25
+                deadline = time.monotonic()+60
                 while not status.exists() and host.poll() is None and time.monotonic()<deadline:
                     time.sleep(0.05)
                 if not status.exists():

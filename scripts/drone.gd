@@ -3,6 +3,7 @@ extends RigidBody3D
 signal hard_landing(speed: float)
 const Profiles = preload("res://scripts/drone_profiles.gd")
 const Visual = preload("res://scripts/drone_visual.gd")
+const ANGLE_LIMIT_DEGREES := 80.0
 const MOTOR_SPINS := [1.0, -1.0, -1.0, 1.0]
 
 var inches := 5
@@ -133,9 +134,23 @@ func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
 	# Common rates make size comparisons fair; inertia, authority and spool differ.
 	var desired_rate := stick * Vector3(4.2, 2.8, 4.2)
 	if not acro:
-		var level_up := body_basis.transposed() * Vector3.UP
-		desired_rate.x = clampf((level_up.z + stick.x * 0.5) * 6.0, -4.2, 4.2)
-		desired_rate.z = clampf((-level_up.x + stick.z * 0.5) * 6.0, -4.2, 4.2)
+		# Convert heading-referenced Euler angle corrections to body gyro rates.
+		# The coupled Y term is essential when pitching while heavily banked.
+		var limit := deg_to_rad(ANGLE_LIMIT_DEGREES)
+		var attitude := body_basis.get_euler(EULER_ORDER_YXZ)
+		var pitch_rate := clampf((stick.x * limit - attitude.x) * 6.0, -4.2, 4.2)
+		var roll_rate := clampf(wrapf(stick.z * limit - attitude.z, -PI, PI) * 6.0, -4.2, 4.2)
+		var heading_rate := stick.y * 2.8
+		var sr := sin(attitude.z)
+		var cr := cos(attitude.z)
+		var sp := sin(attitude.x)
+		var cp := cos(attitude.x)
+		desired_rate = Vector3(cr * pitch_rate + sr * cp * heading_rate,
+			-sr * pitch_rate + cr * cp * heading_rate, roll_rate - sp * heading_rate)
+		# Scale the whole vector to retain its axis coupling at actuator rate limits.
+		var rate_scale := minf(1.0, minf(4.2 / maxf(absf(desired_rate.x), 0.001),
+			minf(2.8 / maxf(absf(desired_rate.y), 0.001), 4.2 / maxf(absf(desired_rate.z), 0.001))))
+		desired_rate *= rate_scale
 	var error := desired_rate - rate
 	if armed and throttle > 0.08 and state.get_contact_count() == 0:
 		rate_integral = (rate_integral + error * dt).clamp(-Vector3.ONE * 0.8, Vector3.ONE * 0.8)

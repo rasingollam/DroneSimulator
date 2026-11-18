@@ -114,7 +114,7 @@ func _accept(packet: Dictionary, ip: String, port: int) -> void:
 	received_packets += 1
 	if recovering:
 		recovering = false
-		if recovery_auto_resume and not sim.show_help and not sim.show_phone and not sim.show_fleet and not sim.show_training:
+		if recovery_auto_resume and not sim.show_help and not sim.show_phone and not sim.show_fleet and not sim.show_training and not sim.show_explorer:
 			sim.paused = false
 			sim.get_tree().paused = false
 			sim.flash("PHONE SIGNAL RESTORED",2.0)
@@ -157,7 +157,7 @@ func _action(action: String) -> void:
 			sim.get_tree().paused = true
 		"resume":
 			# PC training selection must be completed deliberately before resuming.
-			if sim.show_training:
+			if sim.show_training or sim.show_explorer:
 				return
 			sim.show_fleet = false
 			sim.show_help = false

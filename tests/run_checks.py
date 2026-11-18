@@ -38,7 +38,7 @@ def main():
     if not javac or not java:
         parser.error("A JDK is required; supply --java-home or put javac/java on PATH.")
     run([godot, "--headless", "--path", ".", "--editor", "--import", "--quit"])
-    for script in ("physics_test.gd", "profiles_test.gd", "world_test.gd", "ground_test.gd", "expansion_test.gd", "integration_test.gd", "phone_test.gd"):
+    for script in ("physics_test.gd", "angle_limit_test.gd", "profiles_test.gd", "world_test.gd", "ground_test.gd", "expansion_test.gd", "mountain_test.gd", "frontier_test.gd", "integration_test.gd", "phone_test.gd"):
         run([godot, "--headless", "--path", ".", "--script", "tests/" + script])
     json_jar = Path(args.json_jar) if args.json_jar else ROOT / "tools/json-20240303.jar"
     if json_jar.is_file():

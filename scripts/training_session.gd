@@ -50,7 +50,7 @@ func select_activity(index: int) -> bool:
 	return true
 
 func refresh_best() -> void:
-	sim.best_lap = best_for(selected)
+	sim.best_lap = best_for(selected) if selected>=0 else 0.0
 
 func reset_attempt() -> void:
 	hold = 0.0
@@ -68,7 +68,7 @@ func update(delta: float) -> void:
 	if save_clock > 30.0:
 		save_progress()
 		save_clock = 0
-	if complete or sim.drone.crashed or activity.kind == "race":
+	if complete or sim.drone.crashed or activity.kind in ["race","free"]:
 		return
 	var position: Vector3 = sim.drone.global_position
 	var offset: Vector3 = position-activity.target
@@ -96,6 +96,8 @@ func record_result(seconds: float) -> void:
 	save_progress()
 
 func progress_text() -> String:
+	if activity.kind=="free":
+		return "FREE ROAM / F6 LAUNCH SITES / F7 LIGHT / F8 QUALITY / F9 HOME"
 	if activity.kind == "race":
 		return "GATE %02d / %02d   %s" % [sim.next_gate+1,sim.field.gates.size(),"%.1f s" % sim.lap_time if sim.course_started else "CROSS 01 TO START"]
 	if complete:

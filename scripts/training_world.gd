@@ -1,6 +1,6 @@
 extends Node3D
 const Catalog = preload("res://scripts/training_catalog.gd")
-const FLIGHT_RADIUS := 1100.0
+const FLIGHT_RADIUS := 3800.0
 
 var gates: Array[Node3D] = []
 var gate_materials: Array[StandardMaterial3D] = []
@@ -9,12 +9,21 @@ var rng := RandomNumberGenerator.new()
 var terrain_noise := FastNoiseLite.new()
 var expansion: Node3D
 var exercise_marker: Node3D
+var topography: RefCounted
+var mountains: Node3D
+var lowland_material: ShaderMaterial
+var environment: Environment
+var sunlight: DirectionalLight3D
+var atmosphere := 0
+var high_quality := true
 
 func _ready() -> void:
+	high_quality=RenderingServer.get_current_rendering_method()=="forward_plus"
 	rng.seed = 57291
 	terrain_noise.seed = 132
-	terrain_noise.frequency = 0.006
+	terrain_noise.frequency = 0.003
 	terrain_noise.fractal_octaves = 3
+	topography = load("res://scripts/mountain_topography.gd").new()
 	_environment()
 	_terrain()
 	_airfield()
@@ -24,6 +33,11 @@ func _ready() -> void:
 	expansion.set_script(load("res://scripts/world_expansion.gd"))
 	add_child(expansion)
 	expansion.build(self)
+	mountains = Node3D.new()
+	mountains.set_script(load("res://scripts/mountain_region.gd"))
+	add_child(mountains)
+	mountains.build(self)
+	apply_atmosphere(0)
 	set_active_gate(0)
 
 func mat(hex: String, roughness: float = 0.9) -> StandardMaterial3D:
@@ -77,18 +91,19 @@ func label_3d(text: String, pos: Vector3, size: int = 64, color: Color = Color.W
 func _environment() -> void:
 	var env_node := WorldEnvironment.new()
 	var env := Environment.new()
+	environment = env
 	var sky := Sky.new()
 	var panorama := PanoramaSkyMaterial.new()
 	panorama.panorama = load("res://assets/environment/daylight.hdr")
 	sky.sky_material = panorama
-	sky.radiance_size = Sky.RADIANCE_SIZE_128
+	sky.radiance_size = Sky.RADIANCE_SIZE_256
 	env.background_mode = Environment.BG_SKY
 	env.sky = sky
 	env.background_energy_multiplier = 0.65
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	env.ambient_light_color = Color("bacbd6")
 	env.ambient_light_energy = 0.42
-	env.ssao_enabled = true
+	env.ssao_enabled = RenderingServer.get_current_rendering_method()=="forward_plus"
 	env.ssao_radius = 0.7
 	env.ssao_intensity = 1.1
 	env.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
@@ -100,6 +115,7 @@ func _environment() -> void:
 	env_node.environment = env
 	add_child(env_node)
 	var sun := DirectionalLight3D.new()
+	sunlight = sun
 	sun.rotation_degrees = Vector3(-38, -36, 0)
 	sun.light_color = Color("fff1d9")
 	sun.light_energy = 1.0
@@ -111,6 +127,7 @@ func _environment() -> void:
 
 func _terrain() -> void:
 	var grass := ShaderMaterial.new()
+	lowland_material=grass
 	grass.shader = load("res://assets/shaders/terrain.gdshader")
 	grass.set_shader_parameter("grass_color", load("res://assets/environment/grass_color.jpg"))
 	grass.set_shader_parameter("grass_normal", load("res://assets/environment/grass_normal.jpg"))
@@ -206,13 +223,51 @@ func _terrain_height(x: float, z: float) -> float:
 	var approach := (1.0-smoothstep(18.0,45.0,absf(z-600))) * (1.0-smoothstep(130.0,180.0,absf(x-30)))
 	height *= 1.0-approach
 	var lake := (1.0-smoothstep(50.0,70.0,absf(x-40))) * (1.0-smoothstep(70.0,90.0,absf(z-600)))
-	return lerpf(height,-5.0,lake)
+	var original := lerpf(height,-5.0,lake)
+	var boundary := maxf(absf(x),absf(z))
+	if boundary<=1200 or topography==null:
+		return original
+	return lerpf(original,topography.height(x,z),smoothstep(1200,1400,boundary))
 
 func is_water(position: Vector3) -> bool:
-	return position.y < -0.95 and over_water(position)
+	var water := water_height_at(position.x,position.z)
+	return not is_nan(water) and position.y<water+0.025
 
 func over_water(position: Vector3) -> bool:
-	return absf(position.x-40) < 70 and absf(position.z-600) < 90 and _terrain_height(position.x,position.z) < -1.0
+	return not is_nan(water_height_at(position.x,position.z))
+
+func water_height_at(x: float,z: float) -> float:
+	if absf(x-40)<70 and absf(z-600)<90 and _terrain_height(x,z)<-1:
+		return -0.975
+	if topography!=null:
+		var water: float = topography.water_height(x,z)
+		if not is_nan(water) and _terrain_height(x,z)<water:
+			return water
+	return NAN
+
+func apply_atmosphere(index: int) -> void:
+	atmosphere = posmod(index,3)
+	var panorama := PanoramaSkyMaterial.new()
+	panorama.panorama = load("res://assets/environment/sunset.hdr" if atmosphere==1 else "res://assets/environment/daylight.hdr")
+	environment.sky.sky_material = panorama
+	environment.background_energy_multiplier = 0.65 if atmosphere!=1 else 0.8
+	environment.ambient_light_color = [Color("b6c9d9"),Color("d5b8a5"),Color("b1c3c7")][atmosphere]
+	environment.ambient_light_energy = [0.42,0.36,0.5][atmosphere]
+	environment.fog_density = [0.00016,0.00023,0.0006][atmosphere]
+	environment.fog_height = 220
+	environment.fog_height_density = 0.0007 if atmosphere==2 else 0.0
+	environment.fog_light_color = [Color("b3c9d4"),Color("cab5a3"),Color("adc4c9")][atmosphere]
+	environment.volumetric_fog_enabled = high_quality and RenderingServer.get_current_rendering_method()=="forward_plus"
+	environment.volumetric_fog_density = 0.001 if atmosphere==2 else 0.0
+	environment.volumetric_fog_length = 500
+	environment.volumetric_fog_sky_affect = 0.15
+	environment.ssr_enabled = high_quality and RenderingServer.get_current_rendering_method()=="forward_plus"
+	environment.ssao_enabled = high_quality and RenderingServer.get_current_rendering_method()=="forward_plus"
+	sunlight.rotation_degrees = [Vector3(-32,-35,0),Vector3(-9,-65,0),Vector3(-35,-30,0)][atmosphere]
+	sunlight.light_color = [Color("fff0d7"),Color("ffc180"),Color("d4e5e9")][atmosphere]
+	sunlight.light_energy = [1.1,1.0,0.65][atmosphere]
+	sunlight.directional_shadow_max_distance = 500 if high_quality else 250
+	get_viewport().msaa_3d = Viewport.MSAA_4X if high_quality else Viewport.MSAA_2X
 
 func textured(name: String, scale_uv: float, color: Color = Color.WHITE) -> StandardMaterial3D:
 	var material := mat("ffffff")
@@ -303,6 +358,8 @@ func set_course(activity: Dictionary) -> void:
 	gate_materials.clear()
 	if is_instance_valid(exercise_marker):
 		exercise_marker.queue_free()
+	if activity.kind=="free":
+		return
 	if activity.kind != "race":
 		exercise_marker = Node3D.new()
 		add_child(exercise_marker)
@@ -436,6 +493,7 @@ func _cone(pos: Vector3) -> void:
 
 func _scenery() -> void:
 	var plants := Node3D.new()
+	plants.name = "Vegetation"
 	plants.set_script(load("res://scripts/vegetation.gd"))
 	add_child(plants)
 	plants.build(self)

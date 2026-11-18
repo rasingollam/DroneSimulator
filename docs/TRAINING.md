@@ -1,6 +1,6 @@
 # Pilot training
 
-Open **F5 while disarmed**. Choose with Up/Down or click a row, then Enter or click Launch. Escape closes the menu. The map is one connected 2.4 km square landscape; the flight boundary is a 1.1 km radius from the original airfield. You can explore between districts without loading another map. Crossing the boundary returns to the current activity's launch pad.
+Open **F5 while disarmed**. Choose with Up/Down or click a row, then Enter or click Launch. Escape closes the menu. The map is one connected 8 km square landscape; the flight boundary is a 3.8 km radius from the original airfield. You can explore between districts without loading another map. Crossing the boundary returns to the current activity's launch pad.
 
 ## Start with control, then add speed
 
@@ -36,3 +36,13 @@ Personal bests and completion counts are saved in Godot's application data as `u
 Airborne time, distance and impact count are saved periodically, at results/impacts and on normal exit. Tests use isolated progress files. F3 provides the activity map and height above the physical surface below; F3 again hides the HUD. The original FPV camera mounting and field of view remain unchanged.
 
 Use Android controller 1.3 with the updated PC simulator for brief signal-gap recovery. Choose the activity on the PC and use the phone's Start/Resume and Arm controls. A phone Resume command cannot close the PC training menu while you are choosing an activity. Short gaps hold physics and can recover automatically; a sustained two-second loss disarms and requires a deliberate restart.
+
+## Mountain explorer
+
+F6 opens eighteen scenic launch sites while disarmed. Select a row and press Enter. Lake overlook is a gentle starting point: follow the river north through the stone bridge and natural arch toward two cascades, a cave and the high lake. Other starts reach the western pine pass, abandoned village, railway ravine and summit. There are no compulsory checkpoints or lap results in free roaming. Flight time, distance and impacts continue to be recorded.
+
+F7 cycles morning, golden hour and mist; F8 toggles High/Performance effects; F9 shows a home marker. R resets at the selected launch site. Stay inside the 3.8 km radial flight boundary. F5 returns to the original training activities. The PC explorer menu pauses the session and cannot be closed by a phone Resume command.
+
+The larger landscape builds at startup. Nearby ground uses five-metre detail around the river and ten-metre detail elsewhere, with matching triangle collision. The distant twenty-metre mesh shares the same five-metre chunk edges, so switching detail cannot tear the terrain. A shared smooth normal field keeps lighting and slope textures consistent. This is original procedural geography, not a reconstruction of a surveyed real location.
+
+The [world exploration guide](EXPLORATION.md) covers the second page of scenic starts, optional G trails, Y/P flight recording and replay, discoveries, landing hints and F10 seasons.

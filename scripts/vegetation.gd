@@ -1,6 +1,10 @@
 extends Node3D
 ## Shared procedural branch meshes with CC0 photographed needle/bark atlases.
 var rng := RandomNumberGenerator.new()
+var tree_woods: Array[Mesh] = []
+var tree_leaves: Array[Mesh] = []
+var bark_material: Material
+var needle_material: Material
 
 func build(field: Node3D) -> void:
 	rng.seed = 87461
@@ -13,6 +17,8 @@ func build(field: Node3D) -> void:
 	needles.shader = load("res://assets/shaders/foliage.gdshader")
 	needles.set_shader_parameter("leaf_color", load("res://assets/environment/pine_color.jpg"))
 	needles.set_shader_parameter("leaf_alpha", load("res://assets/environment/pine_alpha.png"))
+	bark_material = bark
+	needle_material = needles
 	for variant in range(3):
 		var wood := SurfaceTool.new()
 		var leaves := SurfaceTool.new()
@@ -42,6 +48,8 @@ func build(field: Node3D) -> void:
 		wood.generate_tangents()
 		var wood_mesh := wood.commit()
 		var leaves_mesh := leaves.commit()
+		tree_woods.append(wood_mesh)
+		tree_leaves.append(leaves_mesh)
 		var transforms: Array[Transform3D] = []
 		for i in range(52):
 			var angle := rng.randf_range(0, TAU)
@@ -92,7 +100,7 @@ func build(field: Node3D) -> void:
 		_instances(leaves_mesh, needles, transforms)
 	_grass(field)
 
-func _instances(mesh: Mesh, material: Material, transforms: Array[Transform3D]) -> void:
+func _instances(mesh: Mesh, material: Material, transforms: Array[Transform3D]) -> MultiMeshInstance3D:
 	var instance := MultiMeshInstance3D.new()
 	var batch := MultiMesh.new()
 	batch.transform_format = MultiMesh.TRANSFORM_3D
@@ -105,6 +113,61 @@ func _instances(mesh: Mesh, material: Material, transforms: Array[Transform3D]) 
 	instance.visibility_range_end = 580
 	instance.visibility_range_end_margin = 40
 	add_child(instance)
+	return instance
+
+func add_mountain_forest(field: Node3D,centres: Array[Vector3]) -> void:
+	var random := RandomNumberGenerator.new()
+	random.seed = 38745
+	var surface := SurfaceTool.new()
+	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for level in range(6):
+		var cone := CylinderMesh.new()
+		cone.top_radius = 0
+		cone.bottom_radius = 2.6-level*0.34
+		cone.height = 3.8
+		cone.radial_segments = 7
+		surface.append_from(cone,0,Transform3D(Basis.IDENTITY,Vector3(0,3+level*1.2,0)))
+	var far_mesh := surface.commit()
+	var far_material := StandardMaterial3D.new()
+	far_material.albedo_color = Color("294237")
+	far_material.roughness = 1
+	var topo: RefCounted = field.topography
+	for centre in centres:
+		for variant in range(3):
+			var transforms: Array[Transform3D] = []
+			for i in range(34):
+				var theta := random.randf()*TAU
+				var radius := sqrt(random.randf())*145
+				var p := centre+Vector3(cos(theta)*radius,0,sin(theta)*radius)
+				p.y = field._terrain_height(p.x,p.z)
+				var slope := Vector2(field._terrain_height(p.x+4,p.z)-p.y,field._terrain_height(p.x,p.z+4)-p.y).length()/4
+				if preload("res://scripts/exploration_geography.gd").passage_clearance(p.x,p.z): continue
+				if p.y>590 or slope>0.85 or not is_nan(topo.water_height(p.x,p.z)) or absf(p.x-topo.road_x(p.z))<12:
+					continue
+				if (absf(p.x-topo.cave_x())<32 and absf(p.z+2740)<120) or (absf(p.x-topo.road_x(-2890))<22 and absf(p.z+2890)<110):
+					continue
+				var clear := true
+				for site in topo.launches:
+					clear = clear and p.distance_to(site.position)>22
+				if not clear: continue
+				var size := random.randf_range(0.8,1.8)
+				transforms.append(Transform3D(Basis(Vector3.UP,random.randf()*TAU).scaled(Vector3(size,size*random.randf_range(0.85,1.2),size)),p))
+				var body := StaticBody3D.new()
+				var shape := CollisionShape3D.new()
+				var trunk := CylinderShape3D.new()
+				trunk.radius = 0.22*size
+				trunk.height = 10*size
+				shape.shape = trunk
+				body.add_child(shape)
+				add_child(body)
+				body.position = p+Vector3.UP*5*size
+			if transforms.is_empty(): continue
+			_instances(tree_woods[variant],bark_material,transforms).visibility_range_end = 400
+			_instances(tree_leaves[variant],needle_material,transforms).visibility_range_end = 400
+			var far := _instances(far_mesh,far_material,transforms)
+			far.visibility_range_begin = 380
+			far.visibility_range_end = 2200
+			far.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 func _segment(surface: SurfaceTool, start: Vector3, end: Vector3, r1: float, r2: float) -> void:
 	var direction := (end - start).normalized()

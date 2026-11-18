@@ -9,6 +9,7 @@ uniform sampler2D forest_roughness : filter_linear_mipmap_anisotropic, repeat_en
 uniform sampler2D gravel_color : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform sampler2D gravel_normal : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform sampler2D gravel_roughness : filter_linear_mipmap_anisotropic, repeat_enable;
+uniform float season=0.0;
 varying vec3 world;
 varying vec3 up_normal;
 float hash(vec2 p) { return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
@@ -40,6 +41,8 @@ void fragment() {
     ALBEDO=mix(ALBEDO,gravel,gravel_weight);
     NORMAL_MAP=mix(mix(texture(grass_normal,world.xz*0.38).rgb,texture(forest_normal,world.xz*0.5).rgb,woodland),texture(gravel_normal,world.xz*0.5).rgb,gravel_weight);
     NORMAL_MAP_DEPTH=0.45;
+    ALBEDO*=mix(vec3(1.0),vec3(1.12,0.9,0.72),min(season,1.0));
+    ALBEDO*=mix(0.72,1.0,smoothstep(0.32,0.68,noise(world.xz*0.0018+vec2(TIME*0.008,TIME*0.003))));
     SPECULAR=0.12;
     ROUGHNESS=mix(mix(0.97,texture(forest_roughness,world.xz*0.5).r,woodland),texture(gravel_roughness,world.xz*0.5).r,gravel_weight);
 }

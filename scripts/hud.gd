@@ -50,6 +50,9 @@ func _draw() -> void:
 	var scale_factor := minf(viewport.x / 1440.0, viewport.y / 900.0)
 	var offset := (viewport - Vector2(1440, 900) * scale_factor) / 2.0
 	draw_set_transform(offset, 0.0, Vector2.ONE * scale_factor)
+	if sim.show_explorer:
+		_explorer_menu()
+		return
 	if sim.show_training:
 		_training_menu()
 		return
@@ -66,7 +69,9 @@ func _draw() -> void:
 		_minimal(d)
 	if sim.hud_mode != 2:
 		_stick_indicators(d)
-	var show_message: bool = sim.hud_mode == 1 or not d.armed or sim.message.begins_with("PHONE") or sim.message.begins_with("LAP ") or sim.message.begins_with("LESSON") or sim.message.begins_with("DISARM")
+		if sim.home_marker:
+			_home_marker(offset,scale_factor)
+	var show_message: bool = sim.hud_mode == 1 or not d.armed or sim.message.begins_with("PHONE") or sim.message.begins_with("LAP ") or sim.message.begins_with("LESSON") or sim.message.begins_with("DISARM") or sim.message.begins_with("DISCOVERED") or sim.message.begins_with("LANDING FOUND")
 	if sim.hud_mode != 2 and show_message and sim.message_time > 0 and not sim.show_help and not sim.show_phone and not d.crashed:
 		var width := maxf(440, mono.get_string_size(sim.message, HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x + 48)
 		panel(Rect2((1440 - width) / 2, 681, width, 38))
@@ -113,7 +118,11 @@ func _minimal(d: RigidBody3D) -> void:
 	var source := "PHONE" if sim.phone != null and sim.phone.connected else ("LINK LOST" if d.remote_active else "KEYBOARD")
 	_quiet_text('%s  ·  %d" %s  ·  %s  ·  %s' % [state, d.inches, d.profile.name, "ACRO" if d.acro else "ANGLE", source], left, TEAL if d.armed else INK)
 	if not d.armed:
-		_quiet_text("F1 help   F2 phone   F3 display   F4 airframes   F5 training", left + Vector2(0, 23), Color(INK, 0.7))
+		_quiet_text("F1 help   F2 phone   F3 display   F4 airframes   F5 training   F6 explore", left + Vector2(0, 23), Color(INK, 0.7))
+	if is_instance_valid(sim.exploration):
+		if sim.exploration.recording: _quiet_text("REC %.0f s / Y SAVE" % sim.exploration.record_time,Vector2(bounds.end.x-180,bounds.position.y+58),TEAL)
+		elif sim.exploration.playing: _quiet_text("FLIGHT GHOST / P STOP",Vector2(bounds.end.x-195,bounds.position.y+58),TEAL)
+		if sim.exploration.guide_index>=0: _quiet_text(sim.exploration.guides[sim.exploration.guide_index].name,Vector2(bounds.position.x+28,bounds.position.y+54),TEAL)
 	_quiet_text(sim.training.activity.name.to_upper()+"  /  F5 TRAINING", Vector2(bounds.position.x+28,bounds.position.y+30),Color(INK,0.75))
 	_quiet_text(sim.training.progress_text(), Vector2(bounds.position.x+28,bounds.position.y+52),Color(TEAL,0.85))
 	var speed := Vector2(d.linear_velocity.x, d.linear_velocity.z).length() * 3.6
@@ -197,7 +206,7 @@ func _telemetry(d: RigidBody3D) -> void:
 
 func _map(d: RigidBody3D) -> void:
 	panel(Rect2(1148, 120, 268, 299))
-	text("TRAINING CIRCUIT", Vector2(1167, 149), 11, TEAL, bold)
+	text("WORLD EXPLORER" if sim.training.activity.kind=="free" else "TRAINING CIRCUIT", Vector2(1167, 149), 11, TEAL, bold)
 	var map_rect := Rect2(1168, 167, 228, 186)
 	for i in range(7):
 		line(Vector2(map_rect.position.x + i * 38, 167), Vector2(map_rect.position.x + i * 38, 353), Color(0.4, 0.65, 0.63, 0.10))
@@ -213,6 +222,12 @@ func _map(d: RigidBody3D) -> void:
 		var at: Vector2 = points[i]
 		draw_circle(at, 5 if i == sim.next_gate else 3, TEAL if i == sim.next_gate else MUTED)
 		text(str(i + 1), at + Vector2(7, 4), 10, MUTED, mono)
+	if sim.training.activity.kind=="free" and is_instance_valid(sim.exploration):
+		if sim.exploration.guide_index>=0:
+			var trail:=PackedVector2Array()
+			for point in sim.exploration.guides[sim.exploration.guide_index].points: trail.append(_map_point(point))
+			if trail.size()>1: draw_polyline(trail,TEAL,1.5,true)
+		if sim.exploration.playing and is_instance_valid(sim.exploration.ghost): draw_circle(_map_point(sim.exploration.ghost.global_position),3,AMBER)
 	var pos := _map_point(d.position)
 	pos = pos.clamp(map_rect.position, map_rect.end)
 	var forward := Vector2(-d.global_basis.z.x, -d.global_basis.z.z).normalized()
@@ -224,16 +239,23 @@ func _map(d: RigidBody3D) -> void:
 	var distance: float = d.position.distance_to(target)
 	if sim.field.gates.is_empty():
 		draw_circle(_map_point(target),6,TEAL)
-	text("NEXT %02d / %02d" % [sim.next_gate+1,sim.field.gates.size()] if not sim.field.gates.is_empty() else "PRACTICE TARGET", Vector2(1167, 396), 12, INK, mono)
+	text("NEXT %02d / %02d" % [sim.next_gate+1,sim.field.gates.size()] if not sim.field.gates.is_empty() else ("HOME" if sim.training.activity.kind=="free" else "PRACTICE TARGET"), Vector2(1167, 396), 12, INK, mono)
 	text("%03d m" % int(distance), Vector2(1342, 396), 14, TEAL, mono)
 	panel(Rect2(1148, 435, 268, 131))
-	var lesson: bool = sim.training.activity.kind != "race"
+	if sim.training.activity.kind=="free":
+		text("FREE ROAM",Vector2(1167,465),11,TEAL,bold)
+		text("%.2f km" % (sim.training.distance_metres/1000),Vector2(1167,504),24,INK,mono)
+		text("F6 SITES / F9 HOME",Vector2(1167,542),12,MUTED,mono)
+		return
+	var lesson: bool = sim.training.activity.kind in ["hover","landing"]
 	text("LESSON COMPLETE" if sim.training.complete else ("CONSECUTIVE HOLD" if lesson else "LAP %02d" % (sim.completed_laps + 1)), Vector2(1167, 465), 11, MUTED, bold)
 	text("%.1f / %s s" % [sim.training.hold,"10" if sim.training.activity.kind=="hover" else "1"] if lesson else _time(sim.lap_time), Vector2(1167, 504), 24, INK, mono)
 	text("BEST  " + (_time(sim.best_lap) if sim.best_lap > 0 else "--:--.--"), Vector2(1167, 542), 13, MUTED, mono)
 
 func _map_point(pos: Vector3) -> Vector2:
 	var activity: Dictionary = sim.training.activity
+	if activity.kind=="free":
+		return Vector2(1282,260)+Vector2(pos.x,pos.z)*0.026
 	var center: Vector3 = activity.spawn
 	var minimum := Vector2(center.x,center.z)
 	var maximum := minimum
@@ -249,6 +271,51 @@ func _map_point(pos: Vector3) -> Vector2:
 
 func _time(seconds: float) -> String:
 	return "%02d:%05.2f" % [int(seconds) / 60, fmod(seconds, 60)]
+
+func _explorer_menu() -> void:
+	_veil(Color(0.018,0.035,0.045,0.96))
+	text("V E C T O R   /   WORLD EXPLORER",Vector2(95,85),13,TEAL,bold)
+	text("Follow the valley. Find your line.",Vector2(93,136),34,INK,bold)
+	text("UP / DOWN browses both pages  ·  ENTER launches  ·  ESC returns",Vector2(95,166),14,MUTED)
+	var sites: Array = sim.field.topography.launches
+	var page: int=sim.explorer_cursor/9
+	for i in range(page*9,mini(page*9+9,sites.size())):
+		var r := Rect2(95,189+(i%9)*54,535,49)
+		var chosen: bool = i==sim.explorer_cursor
+		draw_rect(r,Color(TEAL,0.13) if chosen else Color(INK,0.025))
+		if chosen: draw_rect(r,Color(TEAL,0.6),false)
+		text('%02d   %s' % [i+1,sites[i].name],r.position+Vector2(15,25),18,INK,bold)
+		text('%.0f m elevation' % sites[i].position.y,r.position+Vector2(46,42),10,MUTED,mono)
+	panel(Rect2(670,189,630,486))
+	text("8 × 8 km / %d SCENIC STARTS / PAGE %d OF %d" % [sites.size(),page+1,ceili(sites.size()/9.0)],Vector2(695,218),12,TEAL,bold)
+	var map_rect := Rect2(700,235,570,405)
+	if sim.field.mountains.overview!=null:
+		draw_texture_rect(sim.field.mountains.overview,map_rect,false,Color(0.85,0.92,0.87))
+	for i in range(sites.size()):
+		var p: Vector3 = sites[i].position
+		var at := map_rect.position+Vector2((p.x+4000)/8000,(p.z+4000)/8000)*map_rect.size
+		draw_circle(at,7 if i==sim.explorer_cursor else 4,TEAL if i==sim.explorer_cursor else INK)
+		text(str(i+1),at+Vector2(8,-5),11,INK,mono)
+	if is_instance_valid(sim.exploration):
+		text(sim.exploration.status(),Vector2(95,845),11,MUTED,mono)
+		text("G scenic trail · Y record · P replay · O landing hints",Vector2(690,820),12,TEAL,mono)
+	var chosen: Dictionary = sites[sim.explorer_cursor]
+	text(chosen.description,Vector2(690,704),14,INK)
+	pill("ENTER / CLICK TO EXPLORE",Rect2(690,750,600,40),TEAL)
+	text("No gates. No timer. Fly anywhere.",Vector2(95,713),16,TEAL,bold)
+	text("R returns to this launch pad. F9 toggles the home marker.",Vector2(95,741),12,MUTED)
+	text("F7 lighting · F8 graphics · F10 season",Vector2(95,787),12,MUTED,mono)
+
+func _home_marker(offset: Vector2,factor: float) -> void:
+	var home: Vector3 = sim.drone.spawn_transform.origin
+	var distance: float = sim.drone.global_position.distance_to(home)
+	var bounds := _screen_bounds()
+	_quiet_text("HOME %.0f m" % distance,Vector2(bounds.end.x-155,bounds.position.y+32),TEAL)
+	if sim.camera.is_position_behind(home): return
+	var at: Vector2 = (sim.camera.unproject_position(home+Vector3.UP*1.0)-offset)/factor
+	if not Rect2(20,80,1400,650).has_point(at): return
+	draw_polyline(PackedVector2Array([at+Vector2(0,-10),at+Vector2(10,0),at+Vector2(0,10),at+Vector2(-10,0),at+Vector2(0,-10)]),TEAL,1.5,true)
+	text("HOME",at+Vector2(15,4),12,TEAL,mono)
 
 func _training_menu() -> void:
 	_veil(Color(0.018,0.04,0.05,0.96))
@@ -270,7 +337,7 @@ func _training_menu() -> void:
 		text(badge,rect.position+Vector2(426,23),11,AMBER,mono)
 		text(_time(best) if best>0 else "--:--.--",rect.position+Vector2(426,41),11,MUTED,mono)
 	panel(Rect2(670,189,630,486))
-	text("CONNECTED WORLD / 2.4 km TERRAIN",Vector2(695,218),12,TEAL,bold)
+	text("TRAINING DISTRICTS / F6 WORLD EXPLORER",Vector2(695,218),12,TEAL,bold)
 	var centers: Array = catalog.ZONES
 	var names := ["AIRFIELD","MEADOW","PINE WOOD","FREIGHT YARD","QUARRY","LAKESIDE"]
 	var chosen: Dictionary = catalog.ACTIVITIES[sim.training_cursor]
@@ -321,7 +388,7 @@ func _flight_overlay(d: RigidBody3D, offset: Vector2, scale_factor: float) -> vo
 			var b := Vector2(55 if i == 0 else 24, y).rotated(roll)
 			line(center + a, center + b, Color(0.8, 1, 0.95, 0.35), 1.0)
 	var target: Vector3 = sim.field.gates[sim.next_gate].position + Vector3.UP * 3.1 if not sim.field.gates.is_empty() else sim.training.activity.target
-	if not sim.camera.is_position_behind(target):
+	if not sim.camera.is_position_behind(target) and (sim.training.activity.kind!="free" or sim.home_marker):
 		var screen: Vector2 = (sim.camera.unproject_position(target) - offset) / scale_factor
 		if screen.x > 295 and screen.x < 1130 and screen.y > 190 and screen.y < 695:
 			var diamond := PackedVector2Array([screen + Vector2(0, -8), screen + Vector2(8, 0), screen + Vector2(0, 8), screen + Vector2(-8, 0), screen + Vector2(0, -8)])
@@ -370,7 +437,7 @@ func _help() -> void:
 	draw_rect(Rect2(310, 124, 820, 4), TEAL)
 	text("V E C T O R   /   F L I G H T   L A B", Vector2(356, 173), 12, TEAL, bold)
 	text("Learn to fly. Feel the physics.", Vector2(353, 227), 36, INK, bold)
-	text("Six districts. Nine activities. Build skills one flight at a time.", Vector2(356, 261), 17, MUTED)
+	text("Train in six districts or explore the mountain wilderness with F6.", Vector2(356, 261), 17, MUTED)
 	line(Vector2(356, 289), Vector2(1084, 289))
 	text("01   LEFT STICK", Vector2(356, 323), 12, TEAL, bold)
 	text("W / S", Vector2(356, 361), 24, INK, mono)
@@ -391,8 +458,8 @@ func _help() -> void:
 	text("3", Vector2(356, 558), 17, TEAL, mono)
 	text("Use small arrow-key inputs. Aim for the teal gate. R resets after a crash.", Vector2(386, 558), 16)
 	text("ANGLE self-levels. TAB switches to ACRO; tilt stays when sticks are released.", Vector2(356, 601), 14, MUTED)
-	text("F2 phone. F3 displays. F4 airframes. F5 training & world map. F11 fullscreen.", Vector2(356, 625), 14, MUTED)
-	text("Keyboard inputs are smoothed; real radio sticks provide much finer control.", Vector2(356, 659), 13, AMBER)
+	text("F2 phone · F3 display · F4 airframes · F5 training · F6 explore · F11 fullscreen.", Vector2(356, 625), 14, MUTED)
+	text("G scenic trails · Y record · P replay · O landing hints · F10 seasons", Vector2(356, 659), 13, AMBER)
 	text("Physics-based training model. Handling needs validation against your real drone.", Vector2(356, 682), 13, MUTED)
 	draw_rect(Rect2(356, 710, 728, 42), TEAL)
 	text("ENTER   /   ENTER THE FIELD", Vector2(581, 737), 14, Color("092c2a"), bold)

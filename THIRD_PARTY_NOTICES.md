@@ -21,5 +21,9 @@ The environment textures and sky below are sourced from **Poly Haven** under **C
 | Gravelly Sand | Quarry, paths and shore albedo, normal and roughness, 2K | [Poly Haven](https://polyhaven.com/a/gravelly_sand) |
 | Corrugated Iron 02 | Warehouse and container albedo, normal and roughness, 2K | [Poly Haven](https://polyhaven.com/a/corrugated_iron_02) |
 | Forest Ground 04 | Woodland albedo, normal and roughness, 2K | [Poly Haven](https://polyhaven.com/a/forest_ground_04) |
+| Rock Face | Triplanar cliff albedo/normal/roughness, 2K | [Poly Haven](https://polyhaven.com/a/rock_face) |
+| Rocky Terrain | Alpine scree albedo/normal/roughness, 2K | [Poly Haven](https://polyhaven.com/a/rocky_terrain) |
+| Snow 02 | High-altitude snow albedo/normal/roughness, 2K | [Poly Haven](https://polyhaven.com/a/snow_02) |
+| Kiara 8 Sunset | Golden-hour 2K HDR panorama/reflections | [Poly Haven](https://polyhaven.com/a/kiara_8_sunset) |
 
-Individual artists are credited on the linked asset pages. `assets/sources.json` records original download URLs, resolutions/channels, source MD5 checksums and license links. `dev/fetch_scenery_assets.py` verifies scenery downloads against the public API checksums. No paid or restricted asset libraries are required. Original code and generated geometry remain MIT licensed; the source models, photographs and HDRI remain CC0. Imported model geometry/materials are shared; collision hulls and factory-module instances are generated locally by Godot.
+Individual artists are credited on the linked asset pages. `assets/sources.json` records original download URLs, resolutions/channels, source MD5 checksums and license links. `dev/fetch_scenery_assets.py` and `dev/fetch_mountain_assets.py` verify scenery downloads against the public API checksums. No paid or restricted asset libraries are required. Original code and generated geometry remain MIT licensed; the source models, photographs and HDRI remain CC0. Imported model geometry/materials are shared; collision hulls and factory-module instances are generated locally by Godot.

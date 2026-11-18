@@ -21,7 +21,7 @@ Four normalized rotor speeds approach targets with first-order time constants. E
 
 A body-rate controller computes body torque, using estimated inertia to scale proportional, integral and filtered derivative terms. The mixer translates collective and torque into motor targets, saturating each at physical limits. Integral bounds and ground/low-throttle reset reduce windup.
 
-All profiles share 4.2 rad/s pitch/roll and 2.8 rad/s yaw rate limits for fair comparisons. Angle mode adds a geometric leveling loop with up to 30° bank/pitch. Acro release stops rotation but retains tilt. Neither mode holds altitude or position.
+All profiles share 4.2 rad/s pitch/roll and 2.8 rad/s yaw rate limits for fair comparisons. Angle mode maps stick position linearly to a **80° pitch/roll limit per axis**, using a heading-referenced leveling loop that converts coupled pitch/roll/yaw corrections into body gyro rates. A processed controller input of ±0.5 commands ±40°; centered sticks command level. The phone's dead zone and expo still shape thumb travel before this mapping. Simultaneous full pitch and roll can produce more than 80° total lean. Acro release stops rotation but retains tilt. Neither mode holds altitude or position.
 
 Hover power is `sqrt(m*g/(4*Tmax))` in free air, using gravity **9.80665 m/s²**. H sets this power once; it does not cancel existing vertical velocity. The selected profile's hover value is also sent to the phone.
 
@@ -40,3 +40,5 @@ Height telemetry estimates clearance above the collision surface below using a d
 Detailed blade aerodynamics, propwash, vortex-ring state, battery discharge/sag, flexible frames, ESC internals, radio latency and structural damage are omitted. Pack cell count/capacity and motor KV describe the representative configuration; they do not independently generate a measured power curve. Thrust, drag, inertia and motor response are estimated, not fitted to real flight logs.
 
 The automated tests establish force balance, stable control, directionality, mode behavior, switching and collision handling for each profile. They do not establish real-flight accuracy. A physical radio and calibration against measured hardware/logs are required for close transfer to a particular aircraft.
+
+The FPV camera defaults to **30° upward tilt**, adjustable with [ and ] in five-degree steps. Its mounting position and 105° field of view are retained. Betaflight 2025.12 documents `angle_limit` as configurable from 10° to 80° ([official reference](https://betaflight.com/docs/wiki/guides/current/Cli#angle--horizon-mode)); the simulator uses 80° by request.

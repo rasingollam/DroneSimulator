@@ -6,7 +6,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Godot 4.5.1](https://img.shields.io/badge/Godot-4.5.1-478cbf)](https://godotengine.org/)
 
-Practice throttle, yaw, pitch and roll across six districts in one connected landscape. Fly with the keyboard or use two simultaneous touch sticks on your Android phone while watching the PC screen.
+Practice throttle, yaw, pitch and roll across six training districts and a mountain wilderness in one connected landscape. Fly with the keyboard or use two simultaneous touch sticks on your Android phone while watching the PC screen.
 
 **[Get the Android remote](https://github.com/rasingollam/DroneSimulator/releases/latest/download/VectorController.apk)** · [Training guide](docs/TRAINING.md) · [Physics and realism](docs/PHYSICS.md) · [Asset credits](THIRD_PARTY_NOTICES.md)
 
@@ -21,7 +21,10 @@ Practice throttle, yaw, pitch and roll across six districts in one connected lan
 - Motor spool response, quadratic drag, gravity, wind/gusts, contacts and impact-triggered motor cutoff.
 - **Angle** self-leveling and **Acro** body-rate modes, with FPV and chase cameras.
 - Textured field, HDR sky/reflections, wind-animated grass and pine foliage, smooth highlands, a flyable curved-roof hangar, service buildings and training obstacles. Environment photographs are CC0 assets from Poly Haven; see [credits](THIRD_PARTY_NOTICES.md).
-- **2.4 × 2.4 km terrain** with a 1.1 km flight radius, six districts, nine selectable activities, hover/landing lessons, technical circuits and a cross-country route.
+- **8 × 8 km landscape** with a 3.8 km flight radius, six training districts and eighteen scenic launch points. Fly river valleys, two cascades, alpine lakes, pine forests, a natural arch, a cave, road tunnel, cliff road, stone bridge and railway viaduct.
+- Free roaming without checkpoints or a race clock; campsites, a lakeside cabin, abandoned village and snowy summit. Morning, golden-hour and mist presets, optional home marker and High/Performance graphics modes.
+- Continuous terrain edges across streamed detail levels, matching ground collision, broad natural slopes, triplanar rock textures and height/slope blended scree and snow.
+- Nine training activities: hover/landing lessons, technical circuits and a cross-country route.
 - Scanned rock meshes, detailed factory facade modules, crates and drums; concrete, metal, timber, gravel and forest-floor PBR materials. Assets are bundled for offline use.
 - Saved personal bests, lesson completions, medal targets, airborne time, distance and impact count. Records are separated by activity, airframe, flight mode and wind.
 - Full-screen view with minimal, instrument and hidden HUD modes; translucent bottom-center stick indicators.
@@ -46,7 +49,68 @@ godot --path .
 
 On Windows, `Launch.cmd` uses `godot` on PATH, or an optionally supplied portable engine in `tools/`. **Engine binaries, Android SDKs and signing keys are not included in the repository.**
 
-The simulator opens full screen, disarmed, with a clear view. **F1** opens the guide; **F2** opens pairing; **F3** cycles HUD modes; **F4** opens airframe comparison; **F5** opens training and the world overview; **F11** toggles full screen. The upgraded visuals use Forward+ (Vulkan); `Launch-low-graphics.cmd` or `godot --path . --rendering-method gl_compatibility` provides a reduced-effects OpenGL fallback.
+The simulator opens full screen, disarmed, with a clear view. **F1** opens the guide; **F2** opens pairing; **F3** cycles HUD modes; **F4** opens airframe comparison; **F5** opens training; **F6** opens world exploration; **F7** changes lighting; **F8** changes graphics quality; **F9** toggles the home marker; **F11** toggles full screen. The upgraded visuals use Forward+ (Vulkan); `Launch-low-graphics.cmd` or `godot --path . --rendering-method gl_compatibility` provides a reduced-effects OpenGL fallback.
+
+## Explore the world
+
+Press **F6 while disarmed**, choose a launch site with Up/Down or a click, then press Enter. Start at **Lake overlook** and follow the river upstream through the stone bridge and natural arch to the waterfalls, cavern and high lake. Try the western pine saddle, forgotten village, railway ravine and summit for different terrain and lines.
+
+**F7** cycles morning, golden hour and mist. **F8** switches High/Performance effects. **F9** toggles a home marker; **R** returns to your chosen launch pad. Fly freely without compulsory gates. Your total flying time and distance still accumulate. **F5** returns to the training activities.
+
+![River valley and stone bridge](docs/images/mountain-river-valley.png)
+
+<details>
+<summary>Explorer menu, cave, waterfall and railway views</summary>
+
+![Mountain launch selector](docs/images/mountain-explorer.png)
+
+| Cave passage | Waterfall |
+| --- | --- |
+| ![Open-ended cave entrance](docs/images/mountain-cave.png) | ![River cascade](docs/images/mountain-waterfall.png) |
+
+![Railway viaduct across the ravine](docs/images/mountain-viaduct.png)
+
+</details>
+
+| High lake | Mountain panorama |
+| --- | --- |
+| ![Alpine lake and surrounding slopes](docs/images/mountain-glacial-lake.png) | ![View down the valley from the summit](docs/images/mountain-summit.png) |
+
+| Coastal cliffs and sea stacks | Rice foothills |
+| --- | --- |
+| ![Coastal exploration region](docs/images/frontier-coast.png) | ![Flooded terraced farmland](docs/images/frontier-terraces.png) |
+
+<details>
+<summary>More world expansion screenshots</summary>
+
+![Second page of the eighteen-site explorer](docs/images/frontier-menu.png)
+
+| Alpine bowl | Cableway |
+| --- | --- |
+| ![Snow bowl and rocky ridges](docs/images/frontier-winter.png) | ![Mountain cableway](docs/images/frontier-cableway.png) |
+
+| Quarry and conveyors | Braided river |
+| --- | --- |
+| ![Quarry region](docs/images/frontier-quarry.png) | ![Braided river channels](docs/images/frontier-delta.png) |
+
+![Optional scenic trail](docs/images/frontier-trail.png)
+
+</details>
+
+The second F6 page reaches **slot canyons, coastal cliffs and sea stacks, flooded rice terraces, braided rivers, an alpine bowl, landslide terrain, a branching mine, a reservoir dam and a ridge cableway**. There are now eighteen launch points. Explore side gorges, timber crossings, conveyor gaps, an avalanche gallery, ruined houses, boathouses, lookout towers and a dry alcove behind the waterfall.
+
+| Control | Exploration feature |
+| --- | --- |
+| **G** | Cycle six optional scenic trails, then switch them off |
+| **Y** | Start recording; press again to save. Disarming or crashing also ends the run |
+| **P** | Show/hide your saved flight ghost; arming starts its clock |
+| **O** | Show/hide landing spot markers |
+| **F10** | Cycle summer, autumn and winter vegetation/snow |
+| **M** | Mute motors and environmental audio |
+
+Find hidden camps, a wreck, mine offices and lakeside ruins. Discoveries and two-second settled landings save across sessions. Moving cloud shadows, animated cable cars, a rotating lighthouse beacon, flowing water and spatial water/bird ambience give the routes life. [Exploration and replay guide](docs/EXPLORATION.md).
+
+The distant landscape is always visible. Nearby terrain detail and physical ground load ahead of the aircraft on a CPU worker, with shared boundary vertices between detail levels. Allow time for the larger world to build at startup. High quality uses Forward+ reflections, ambient occlusion, shadows and mist volumes; actual frame rate depends on the GPU, resolution and view.
 
 ## Choose your drone
 
@@ -119,7 +183,7 @@ For optional Wi-Fi APK transfer, install Python 3 and run `Install-on-phone.cmd`
 | **H** | Set level-hover power; no altitude hold |
 | **Tab** | Angle / Acro |
 | **C** | Chase / FPV camera |
-| **[ / ]** | Adjust FPV camera tilt |
+| **[ / ]** | Adjust FPV camera tilt (30° upward by default) |
 | **B** | Calm / light wind / breezy |
 | **R** | Return to pad, disarmed; restart circuit attempt |
 | **Escape** | Pause / resume |
@@ -127,13 +191,17 @@ For optional Wi-Fi APK transfer, install Python 3 and run `Install-on-phone.cmd`
 | **F3** | Minimal display → full instruments → hidden HUD |
 | **F4 / 2–5** | Airframe comparison / select size while disarmed |
 | **F5** | Training menu; arrows or mouse to select, Enter or launch button to start |
+| **F6** | Scenic mountain launch selector (disarm first) |
+| **F7 / F8 / F9** | Lighting preset / graphics quality / home marker |
+| **F10** | Summer / autumn / winter scenery |
+| **G / Y / P / O** | Scenic trail / flight recording / saved ghost / landing hints |
 | **F11** | Full screen / windowed |
 | **K** | Disconnect phone and use keyboard |
 | **M** | Mute / unmute motors |
 
 Hold W gently past hover power, then release to keep that setting. Tap S to descend. Small pitch/roll inputs are easier to control than long holds. Some keyboards cannot register all simultaneous key combinations.
 
-**Angle** commands up to 30° bank/pitch and self-levels on release. **Acro** commands rotation rates; releasing the stick stops rotation while retaining tilt. Neither mode holds altitude or position. Banking redirects thrust, so maintaining height requires additional throttle.
+**Angle** commands up to 80° pitch/roll per axis and self-levels on release. **Acro** commands rotation rates; releasing the stick stops rotation while retaining tilt. Neither mode holds altitude or position. Banking redirects thrust, so maintaining height requires additional throttle.
 
 ## World and training
 
@@ -190,7 +258,7 @@ Install **Python 3**, **Godot 4.5.1** and a **JDK** for the Java tests. No Pytho
 python tests/run_checks.py --godot /path/to/godot
 ```
 
-The runner checks project import, gravity/hover/attitude behavior, ground stability, district/circuit collision, lesson scoring and persistence, keyboard integration, the real UDP receiver, control math, haptic detection, asset/APK checksums and restricted APK transfer. GitHub Actions runs the same checks. Physical Android input and vibration require manual validation.
+The runner checks project import, gravity/hover/attitude behavior, ground stability, matching terrain edges/manifold geometry, mountain launch/portal collision, district/circuit collision, lesson scoring and persistence, keyboard integration, the real UDP receiver, control math, haptic detection, asset/APK checksums and restricted APK transfer. GitHub Actions runs the same checks. Physical Android input and vibration require manual validation.
 
 The exact Java sender also has corrupted-packet, socket-error, short-gap and sustained-loss tests, plus an end-to-end test against an isolated Godot process. Supply `--json-jar /path/to/json-20240303.jar` to include them locally; CI downloads this test-only runtime with a pinned SHA-256 checksum. The APK uses Android's built-in JSON implementation and has no extra runtime dependency.
 

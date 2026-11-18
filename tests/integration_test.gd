@@ -70,6 +70,8 @@ func run() -> void:
 	check(sim.drone.angular_velocity.y < -0.5, "Physical D input yaws right")
 	await tap(KEY_C)
 	check(sim.fpv and sim.camera.fov == 105.0, "C selects FPV camera")
+	var camera_forward: Vector3=sim.drone.global_basis.transposed()*(-sim.camera.global_basis.z)
+	check(is_equal_approx(sim.fpv_tilt,30) and absf(rad_to_deg(asin(clampf(camera_forward.y,-1,1)))-30)<0.3,"FPV camera defaults to thirty degrees upward relative to the aircraft")
 	await tap(KEY_TAB)
 	check(sim.drone.acro, "Tab selects Acro mode")
 	await tap(KEY_B)
